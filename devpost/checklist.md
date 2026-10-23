@@ -73,7 +73,7 @@ Commit convention: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, 
 
 ## Hands-on Checkpoints
 
-- [ ] Early usable behavior explored — after Slice 2 (upload, orbit, manual joint drag, and reload persistence all working — enough real product to react to before the AI pipeline is built on top of it)
+- [x] Early usable behavior explored — after Slice 2 (upload, orbit, manual joint drag, and reload persistence all working — enough real product to react to before the AI pipeline is built on top of it)
 - [ ] Final kick-the-tires exploration and feedback completed
 
 ## Final Review
