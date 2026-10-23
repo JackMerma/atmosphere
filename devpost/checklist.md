@@ -93,3 +93,5 @@ Reflection: [offered/answered/declined/already covered — personal answer belon
 Activity mode: [live app and editor, explicit static fallback, focused alternative, prior practice, or recap]
 
 ## Revisions
+
+- Scaffolded on Next.js 16.4.3 instead of the spec's "Next.js 15" — `create-next-app@latest` installs whatever is current; no API used in this PoC depends on the difference, so the build continues on 16.x rather than pinning back.
