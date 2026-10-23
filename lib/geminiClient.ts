@@ -4,8 +4,11 @@ const SYSTEM_PROMPT =
   "Split the user's motion description into an ordered list of short, self-contained " +
   "static pose descriptions, one per state the user explicitly described, in order. " +
   "Do NOT invent a starting, resting, or ending pose the user did not mention: a single " +
-  "described pose yields a single entry. Describe each pose as a body position only, with " +
-  "no transitions. Return JSON.";
+  "described pose yields a single entry. Each description must be COMPLETE and " +
+  "self-contained: it states what both arms and both legs are doing, writing relaxed " +
+  "limbs explicitly (e.g. 'arms down at the sides'), because it is judged on its own " +
+  "against a picture of the whole body. Describe a static body position only, with no " +
+  "transitions. Return JSON.";
 
 export async function decomposePrompt(prompt: string): Promise<string[]> {
   const apiKey = process.env.GEMINI_API_KEY;

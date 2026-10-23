@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
-import { applyWorldRotation } from "@/lib/boneMath";
+import { applyWorldRotation, collectBones } from "@/lib/boneMath";
 import type { Direction, StepResult } from "@/lib/jevClient";
 
 export const MAX_ITERATIONS = 10;
@@ -35,8 +35,11 @@ export interface Keyframe {
   pose: string;
   match: number;
   converged: boolean;
-  /** Local rotation (x, y, z, w) of every joint, keyed by bone uuid. */
-  rotations: Record<string, [number, number, number, number]>;
+  /**
+   * Local rotation (x, y, z, w) of every bone, in `collectBones` order. Indexed
+   * rather than keyed by uuid because uuids change every time a file is parsed.
+   */
+  quats: [number, number, number, number][];
 }
 
 export interface Progress {
@@ -63,14 +66,6 @@ function humanize(name: string) {
     .trim();
 }
 
-function collectBones(scene: THREE.Object3D) {
-  const bones: THREE.Bone[] = [];
-  scene.traverse((o) => {
-    if (o instanceof THREE.Bone) bones.push(o);
-  });
-  return bones;
-}
-
 /** Joints Jev may move: only ones with a child bone, so "swing the limb" has a direction. */
 function buildCandidates(bones: THREE.Bone[]): Candidate[] {
   const seen = new Set<string>();
@@ -95,7 +90,7 @@ function restore(bones: THREE.Bone[], quats: number[][]) {
   bones.forEach((b) => b.updateMatrixWorld(true));
 }
 
-function resetToRest(bones: THREE.Bone[]) {
+export function resetToRest(bones: THREE.Bone[]) {
   restore(
     bones,
     bones.map((b) => b.userData.restQuaternion ?? b.quaternion.toArray())
@@ -165,8 +160,10 @@ async function requestStep(
 
 /**
  * Drives the loaded model through each pose in order: render it, ask Jev how
- * well it matches, and if not, nudge one joint a fixed step — up to
- * MAX_ITERATIONS per pose. A pose that never matches keeps the best attempt.
+ * well it matches, and if not, nudge one joint — up to MAX_ITERATIONS per
+ * pose. A pose that never matches keeps the best attempt. Starts from the
+ * model's rest pose; if anything fails, the pose it had before is restored
+ * and nothing is returned, so no partial result can be saved.
  */
 export async function runMotion(
   poses: string[],
@@ -179,6 +176,22 @@ export async function runMotion(
   const candidates = buildCandidates(bones);
   if (candidates.length === 0) throw new Error("This model has no movable joints.");
 
+  const before = snapshot(bones);
+  try {
+    return await converge(poses, bones, candidates, viewport, onProgress);
+  } catch (err) {
+    restore(bones, before);
+    throw err;
+  }
+}
+
+async function converge(
+  poses: string[],
+  bones: THREE.Bone[],
+  candidates: Candidate[],
+  viewport: NonNullable<ReturnType<typeof useAtmosphereStore.getState>["viewport"]>,
+  onProgress: (p: Progress) => void
+): Promise<Keyframe[]> {
   resetToRest(bones);
   const keyframes: Keyframe[] = [];
 
@@ -224,9 +237,7 @@ export async function runMotion(
       pose,
       match: best.match,
       converged,
-      rotations: Object.fromEntries(
-        bones.map((b) => [b.uuid, b.quaternion.toArray() as [number, number, number, number]])
-      ),
+      quats: snapshot(bones),
     });
   }
 

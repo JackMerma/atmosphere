@@ -1,5 +1,14 @@
 import * as THREE from "three";
 
+/** Every bone in a model, in scene-traversal order (stable for a given file). */
+export function collectBones(scene: THREE.Object3D) {
+  const bones: THREE.Bone[] = [];
+  scene.traverse((o) => {
+    if (o instanceof THREE.Bone) bones.push(o);
+  });
+  return bones;
+}
+
 const boneWorldQuat = new THREE.Quaternion();
 const newWorldQuat = new THREE.Quaternion();
 const parentWorldQuat = new THREE.Quaternion();

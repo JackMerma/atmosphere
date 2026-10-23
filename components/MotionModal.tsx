@@ -3,6 +3,8 @@
 import { useState } from "react";
 import CornerBrackets from "@/components/CornerBrackets";
 import { runMotion, MAX_ITERATIONS, type Progress } from "@/lib/convergence";
+import { createAnimation } from "@/lib/animations";
+import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 
 export default function MotionModal({ onClose }: { onClose: () => void }) {
   const [prompt, setPrompt] = useState("");
@@ -10,15 +12,17 @@ export default function MotionModal({ onClose }: { onClose: () => void }) {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  const setGenerating = useAtmosphereStore((s) => s.setGenerating);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setGenerating(true);
     setError(null);
     setPoses([]);
     setProgress(null);
-    setDone(false);
+    setSaved(null);
     try {
       const res = await fetch("/api/motion/decompose", {
         method: "POST",
@@ -29,12 +33,13 @@ export default function MotionModal({ onClose }: { onClose: () => void }) {
       if (!res.ok) throw new Error(data.error ?? "Request failed.");
       setPoses(data.poses);
 
-      await runMotion(data.poses, setProgress);
-      setDone(true);
+      const keyframes = await runMotion(data.poses, setProgress);
+      setSaved((await createAnimation(keyframes)).label);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed.");
     } finally {
       setBusy(false);
+      setGenerating(false);
     }
   }
 
@@ -76,8 +81,10 @@ export default function MotionModal({ onClose }: { onClose: () => void }) {
             {progress.adjustment && busy && <> · {progress.adjustment}</>}
           </p>
         )}
-        {done && (
-          <p className="font-mono text-xs uppercase tracking-widest text-foreground/70">Done</p>
+        {saved && (
+          <p className="font-mono text-xs uppercase tracking-widest text-foreground/70">
+            Saved as {saved}
+          </p>
         )}
         <div className="flex gap-2">
           <button

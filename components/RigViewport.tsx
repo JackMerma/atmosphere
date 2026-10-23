@@ -5,6 +5,7 @@ import { OrbitControls, Grid, Bounds } from "@react-three/drei";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import JointHandles from "@/components/JointHandles";
 import ViewportBridge from "@/components/ViewportBridge";
+import PlaybackDriver from "@/components/PlaybackDriver";
 
 export default function RigViewport() {
   const scene = useAtmosphereStore((s) => s.scene);
@@ -17,6 +18,7 @@ export default function RigViewport() {
         gl={{ preserveDrawingBuffer: true }}
       >
         <ViewportBridge />
+        <PlaybackDriver />
         <color attach="background" args={["#f3efe4"]} />
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 5, 3]} intensity={1.1} />

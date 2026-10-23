@@ -7,7 +7,9 @@ import RigViewport from "@/components/RigViewport";
 import CornerBrackets from "@/components/CornerBrackets";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { parseGltfBuffer } from "@/lib/gltfJoints";
-import { loadModel } from "@/lib/db";
+import { loadModel, loadAnimations } from "@/lib/db";
+import AnimationsHistoryPanel from "@/components/AnimationsHistoryPanel";
+import PlayButton from "@/components/PlayButton";
 
 export default function Home() {
   const hasJoints = useAtmosphereStore((s) => s.joints.length > 0);
@@ -15,11 +17,13 @@ export default function Home() {
   const setLoading = useAtmosphereStore((s) => s.setLoading);
   const setModel = useAtmosphereStore((s) => s.setModel);
   const setError = useAtmosphereStore((s) => s.setError);
+  const setAnimations = useAtmosphereStore((s) => s.setAnimations);
 
   useEffect(() => {
     (async () => {
       const stored = await loadModel();
       if (!stored) return;
+      setAnimations(await loadAnimations());
       setLoading();
       try {
         const buffer = await stored.fileBlob.arrayBuffer();
@@ -50,6 +54,8 @@ export default function Home() {
           >
             Motion
           </button>
+          <AnimationsHistoryPanel />
+          <PlayButton />
         </div>
       </div>
       {motionOpen && <MotionModal onClose={() => setMotionOpen(false)} />}

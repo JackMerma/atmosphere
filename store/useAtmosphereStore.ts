@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import * as THREE from "three";
 import { JointInfo } from "@/lib/gltfJoints";
+import type { Animation } from "@/lib/animations";
 
 /** Imperative handle onto the 3D canvas, registered by ViewportBridge. */
 export interface ViewportApi {
@@ -10,6 +11,15 @@ export interface ViewportApi {
 }
 
 interface AtmosphereState {
+  animations: Animation[];
+  activeAnimationId: string | null;
+  playing: boolean;
+  generating: boolean;
+  setGenerating: (generating: boolean) => void;
+  setAnimations: (animations: Animation[]) => void;
+  addAnimation: (animation: Animation) => void;
+  setActiveAnimation: (id: string) => void;
+  setPlaying: (playing: boolean) => void;
   viewport: ViewportApi | null;
   capturing: boolean;
   setViewport: (viewport: ViewportApi | null) => void;
@@ -27,6 +37,21 @@ interface AtmosphereState {
 }
 
 export const useAtmosphereStore = create<AtmosphereState>((set) => ({
+  animations: [],
+  activeAnimationId: null,
+  playing: false,
+  generating: false,
+  setGenerating: (generating) =>
+    set((s) => ({ generating, playing: generating ? false : s.playing })),
+  setAnimations: (animations) =>
+    set({ animations, activeAnimationId: animations[0]?.id ?? null, playing: false }),
+  addAnimation: (animation) =>
+    set((s) => ({
+      animations: [animation, ...s.animations],
+      activeAnimationId: animation.id,
+    })),
+  setActiveAnimation: (id) => set({ activeAnimationId: id }),
+  setPlaying: (playing) => set({ playing }),
   viewport: null,
   capturing: false,
   setViewport: (viewport) => set({ viewport }),

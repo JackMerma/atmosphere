@@ -2,12 +2,12 @@
 
 import { useRef } from "react";
 import { parseGltfBuffer } from "@/lib/gltfJoints";
-import { saveModel } from "@/lib/db";
+import { saveModel, clearAnimations } from "@/lib/db";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 
 export default function ModelUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const { isLoading, error, fileName, setLoading, setModel, setError } =
+  const { isLoading, error, fileName, setLoading, setModel, setError, setAnimations } =
     useAtmosphereStore();
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -20,6 +20,9 @@ export default function ModelUpload() {
       const parsed = await parseGltfBuffer(buffer);
       setModel(parsed.scene, parsed.joints, file.name);
       await saveModel(file, file.name);
+      // Saved animations are rotations for the previous model's bones.
+      setAnimations([]);
+      await clearAnimations();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read this file.");
     } finally {
