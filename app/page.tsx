@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import ModelUpload from "@/components/ModelUpload";
+import MotionModal from "@/components/MotionModal";
 import RigViewport from "@/components/RigViewport";
 import CornerBrackets from "@/components/CornerBrackets";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
@@ -9,6 +10,8 @@ import { parseGltfBuffer } from "@/lib/gltfJoints";
 import { loadModel } from "@/lib/db";
 
 export default function Home() {
+  const hasJoints = useAtmosphereStore((s) => s.joints.length > 0);
+  const [motionOpen, setMotionOpen] = useState(false);
   const setLoading = useAtmosphereStore((s) => s.setLoading);
   const setModel = useAtmosphereStore((s) => s.setModel);
   const setError = useAtmosphereStore((s) => s.setError);
@@ -39,8 +42,17 @@ export default function Home() {
         <CornerBrackets />
         <div className="flex flex-col gap-3">
           <ModelUpload />
+          <button
+            type="button"
+            disabled={!hasJoints}
+            onClick={() => setMotionOpen(true)}
+            className="border border-hairline px-4 py-2 font-mono text-xs uppercase tracking-widest transition-colors hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-hairline disabled:hover:text-foreground"
+          >
+            Motion
+          </button>
         </div>
       </div>
+      {motionOpen && <MotionModal onClose={() => setMotionOpen(false)} />}
     </div>
   );
 }

@@ -31,7 +31,7 @@ Commit convention: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, 
   Learner check: Turn Lock on, hover a joint to see it highlight, drag it to rotate just that joint; refresh the page and confirm the model is still there.
   Commit: `feat: add manual joint manipulation and model persistence`
 
-- [ ] **3. Motion prompt decomposes into an ordered pose list (Gemini)**
+- [x] **3. Motion prompt decomposes into an ordered pose list (Gemini)**
   Becomes usable: The Motion button (enabled only once a model with joints is loaded) opens a modal; submitting a multi-pose prompt returns and displays the ordered list of individual pose descriptions.
   Why now: Isolates the Gemini JSON-mode risk (including confirming the live model name) before adding the heavier Jev convergence loop on top of it.
   PRD ref: `prd.md > Motion Generation (Jev Convergence)` (decomposition part), `prd.md > States and Boundaries` (Dependency boundary: Motion requires a loaded, mapped model)
