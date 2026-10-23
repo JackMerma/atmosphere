@@ -9,10 +9,12 @@ interface AtmosphereState {
   isLoading: boolean;
   error: string | null;
   locked: boolean;
+  selectedJointId: string | null;
   setLoading: () => void;
   setModel: (scene: THREE.Group, joints: JointInfo[], fileName: string) => void;
   setError: (message: string) => void;
   toggleLock: () => void;
+  setSelectedJoint: (id: string | null) => void;
 }
 
 export const useAtmosphereStore = create<AtmosphereState>((set) => ({
@@ -22,9 +24,18 @@ export const useAtmosphereStore = create<AtmosphereState>((set) => ({
   isLoading: false,
   error: null,
   locked: false,
+  selectedJointId: null,
   setLoading: () => set({ isLoading: true, error: null }),
   setModel: (scene, joints, fileName) =>
-    set({ scene, joints, fileName, isLoading: false, error: null, locked: false }),
+    set({
+      scene,
+      joints,
+      fileName,
+      isLoading: false,
+      error: null,
+      locked: false,
+      selectedJointId: null,
+    }),
   setError: (message) =>
     set({
       error: message,
@@ -33,6 +44,9 @@ export const useAtmosphereStore = create<AtmosphereState>((set) => ({
       joints: [],
       fileName: null,
       locked: false,
+      selectedJointId: null,
     }),
-  toggleLock: () => set((s) => ({ locked: !s.locked })),
+  toggleLock: () =>
+    set((s) => ({ locked: !s.locked, selectedJointId: s.locked ? null : s.selectedJointId })),
+  setSelectedJoint: (id) => set({ selectedJointId: id }),
 }));

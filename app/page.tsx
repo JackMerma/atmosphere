@@ -4,12 +4,12 @@ import { useEffect } from "react";
 import ModelUpload from "@/components/ModelUpload";
 import RigViewport from "@/components/RigViewport";
 import LockToggle from "@/components/LockToggle";
+import CornerBrackets from "@/components/CornerBrackets";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { parseGltfBuffer } from "@/lib/gltfJoints";
 import { loadModel } from "@/lib/db";
 
 export default function Home() {
-  const joints = useAtmosphereStore((s) => s.joints);
   const setLoading = useAtmosphereStore((s) => s.setLoading);
   const setModel = useAtmosphereStore((s) => s.setModel);
   const setError = useAtmosphereStore((s) => s.setError);
@@ -34,25 +34,15 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b border-hairline px-8 py-5">
-        <h1 className="font-display text-2xl uppercase tracking-[-0.02em]">
-          Atmosphere
-        </h1>
-        <p className="font-mono text-[11px] uppercase tracking-widest text-foreground/50">
-          Atmosphere anything
-        </p>
-      </header>
-      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-8">
-        <ModelUpload />
-        <RigViewport />
-        <LockToggle />
-        {joints.length > 0 && (
-          <p className="font-mono text-xs uppercase tracking-widest text-foreground/50">
-            Mapped {joints.length} joint{joints.length === 1 ? "" : "s"}
-          </p>
-        )}
-      </main>
+    <div className="min-h-screen">
+      <RigViewport />
+      <div className="fixed right-6 top-6 z-10 w-80 border border-hairline bg-background p-4">
+        <CornerBrackets />
+        <div className="flex flex-col gap-3">
+          <ModelUpload />
+          <LockToggle />
+        </div>
+      </div>
     </div>
   );
 }

@@ -4,7 +4,6 @@ import { useRef } from "react";
 import { parseGltfBuffer } from "@/lib/gltfJoints";
 import { saveModel } from "@/lib/db";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
-import CornerBrackets from "@/components/CornerBrackets";
 
 export default function ModelUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -30,19 +29,16 @@ export default function ModelUpload() {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="relative inline-block w-fit">
-        <label className="inline-flex cursor-pointer items-center justify-center border border-hairline px-5 py-2.5 font-mono text-xs uppercase tracking-widest transition-colors hover:border-accent hover:text-accent">
-          {fileName ? "Replace model" : "Upload rigged model (.glb / .gltf)"}
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".glb,.gltf"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-        </label>
-        <CornerBrackets />
-      </div>
+      <label className="inline-flex cursor-pointer items-center justify-center border border-hairline px-4 py-2 font-mono text-xs uppercase tracking-widest transition-colors hover:border-accent hover:text-accent">
+        {fileName ? "Replace model" : "Upload rigged model (.glb / .gltf)"}
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".glb,.gltf"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+      </label>
       {isLoading && (
         <p className="font-mono text-xs uppercase tracking-widest text-foreground/50">
           Parsing model…
@@ -52,8 +48,8 @@ export default function ModelUpload() {
         <p className="font-mono text-xs uppercase tracking-widest text-accent">{error}</p>
       )}
       {fileName && !error && (
-        <p className="font-mono text-xs uppercase tracking-widest text-foreground/50">
-          Loaded: {fileName}
+        <p className="truncate font-mono text-xs uppercase tracking-widest text-foreground/50">
+          {fileName}
         </p>
       )}
     </div>
