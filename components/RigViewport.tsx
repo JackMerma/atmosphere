@@ -44,12 +44,14 @@ export default function RigViewport() {
         <JointHandles />
         {/* Camera orbit stays free; only an active joint drag suspends it,
             so the two gestures (pose a joint vs. look around) never fight. */}
-        <OrbitControls makeDefault enabled={!isDraggingJoint} />
+        <OrbitControls makeDefault enabled={!isDraggingJoint} target={[0, 1, 0]} />
       </Canvas>
       {!scene && (
-        <p className="pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-xs uppercase tracking-widest text-foreground/40">
-          Upload a rigged model to see it here
-        </p>
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <p className="bg-background px-4 py-2 font-mono text-xs uppercase tracking-widest text-foreground/50">
+            Upload a rigged .glb or .gltf model to begin
+          </p>
+        </div>
       )}
     </div>
   );

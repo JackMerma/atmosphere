@@ -50,7 +50,7 @@ export default function MotionModal({ onClose }: { onClose: () => void }) {
         className="relative flex w-[26rem] flex-col gap-3 border border-hairline bg-background p-5"
       >
         <CornerBrackets />
-        <p className="font-mono text-xs uppercase tracking-widest">Describe a motion</p>
+        <p className="font-headline text-lg uppercase tracking-[-0.02em]">Describe a motion</p>
         <textarea
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
