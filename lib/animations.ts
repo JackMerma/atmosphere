@@ -9,10 +9,12 @@ export interface Animation {
   label: string;
   createdAt: number;
   keyframes: Keyframe[];
+  /** Bone rotations the animation began from (the initial state); absent = rest pose. */
+  start?: number[][];
 }
 
 /** Records a finished generation as a new history entry and makes it the active one. */
-export async function createAnimation(keyframes: Keyframe[]) {
+export async function createAnimation(keyframes: Keyframe[], start?: number[][]) {
   const { animations, addAnimation } = useAtmosphereStore.getState();
   const index = animations.reduce((max, a) => Math.max(max, a.index), 0) + 1;
   const animation: Animation = {
@@ -21,6 +23,7 @@ export async function createAnimation(keyframes: Keyframe[]) {
     label: `Animation ${index}`,
     createdAt: Date.now(),
     keyframes,
+    ...(start && { start }),
   };
   addAnimation(animation);
   await saveAnimation(animation);

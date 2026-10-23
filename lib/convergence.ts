@@ -113,6 +113,10 @@ function restore(bones: THREE.Bone[], quats: number[][]) {
   bones.forEach((b) => b.updateMatrixWorld(true));
 }
 
+export function snapshotPose(bones: THREE.Bone[]) {
+  return snapshot(bones);
+}
+
 export function resetToRest(bones: THREE.Bone[]) {
   restore(
     bones,
@@ -217,7 +221,10 @@ async function converge(
   viewport: NonNullable<ReturnType<typeof useAtmosphereStore.getState>["viewport"]>,
   onProgress: (p: Progress) => void
 ): Promise<Keyframe[]> {
-  resetToRest(bones);
+  // Pose 1 starts from the learner's initial state when one was set, else the rest pose.
+  const { initialState } = useAtmosphereStore.getState();
+  if (initialState && initialState.length === bones.length) restore(bones, initialState);
+  else resetToRest(bones);
   const keyframes: Keyframe[] = [];
 
   for (let p = 0; p < poses.length; p++) {

@@ -11,6 +11,10 @@ export interface ViewportApi {
 }
 
 interface AtmosphereState {
+  /** Bone rotations (convergence.ts `snapshot` order) Motion starts from; null = rest pose. */
+  initialState: number[][] | null;
+  initialStateName: string | null;
+  setInitialState: (quats: number[][] | null, name?: string | null) => void;
   animations: Animation[];
   activeAnimationId: string | null;
   playing: boolean;
@@ -37,6 +41,10 @@ interface AtmosphereState {
 }
 
 export const useAtmosphereStore = create<AtmosphereState>((set) => ({
+  initialState: null,
+  initialStateName: null,
+  setInitialState: (quats, name = null) =>
+    set({ initialState: quats, initialStateName: quats ? name : null }),
   animations: [],
   activeAnimationId: null,
   playing: false,
@@ -64,7 +72,15 @@ export const useAtmosphereStore = create<AtmosphereState>((set) => ({
   isDraggingJoint: false,
   setLoading: () => set({ isLoading: true, error: null }),
   setModel: (scene, joints, fileName) =>
-    set({ scene, joints, fileName, isLoading: false, error: null }),
+    set({
+      scene,
+      joints,
+      fileName,
+      isLoading: false,
+      error: null,
+      initialState: null,
+      initialStateName: null,
+    }),
   setError: (message) =>
     set({
       error: message,

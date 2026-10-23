@@ -14,8 +14,8 @@ const qb = new THREE.Quaternion();
 const smoothstep = (t: number) => t * t * (3 - 2 * t);
 
 /**
- * While playing, loops the active animation: rest pose -> each keyframe in
- * order -> back to rest, easing between neighbours. Renders nothing; it only
+ * While playing, loops the active animation: initial state (rest pose if none) -> each
+ * keyframe in order -> back to the start, easing between neighbours. Renders nothing; it only
  * drives bone rotations each frame.
  */
 export default function PlaybackDriver() {
@@ -32,7 +32,8 @@ export default function PlaybackDriver() {
 
     const bones = collectBones(scene);
     const rest = bones.map((b) => b.userData.restQuaternion as number[]);
-    const frames = [rest, ...animation.keyframes.map((k) => k.quats), rest];
+    const base = animation.start ?? rest;
+    const frames = [base, ...animation.keyframes.map((k) => k.quats), base];
     if (frames.some((f) => f.length !== bones.length)) return;
 
     const segments = frames.length - 1;

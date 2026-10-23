@@ -42,7 +42,7 @@ export default function MotionModal({ onClose }: { onClose: () => void }) {
       setPoses(data.poses);
 
       const keyframes = await runMotion(data.poses, settings, setProgress);
-      setSaved((await createAnimation(keyframes)).label);
+      setSaved((await createAnimation(keyframes, useAtmosphereStore.getState().initialState ?? undefined)).label);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed.");
     } finally {

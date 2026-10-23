@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ModelUpload from "@/components/ModelUpload";
+import InitialStateUpload from "@/components/InitialStateUpload";
 import MotionModal from "@/components/MotionModal";
 import RigViewport from "@/components/RigViewport";
 import CornerBrackets from "@/components/CornerBrackets";
@@ -46,6 +47,7 @@ export default function Home() {
         <CornerBrackets />
         <div className="flex flex-col gap-3">
           <ModelUpload />
+          <InitialStateUpload />
           <button
             type="button"
             disabled={!hasJoints}
