@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atmosphere — Spec</title>
+<style>
+  :root {
+    --bg: #f2eee3; --surface: #faf8f1; --border: #1c1a17; --text: #1c1a17; --text-muted: #6b655c;
+    --accent: #ff4d1a; --accent-soft: #ffe6da;
+    --now: #1f8a5f; --now-bg: #eaf7f1;
+    --later: #b97a1f; --later-bg: #fbf1e2;
+    --cut: #c24444; --cut-bg: #fbecec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17151b; --surface: #201d25; --border: #4a4550; --text: #ece9f2; --text-muted: #a69fb3;
+      --accent: #ff6a3d; --accent-soft: #3a2117;
+      --now: #5fd6a0; --now-bg: #16261f;
+      --later: #f0b25e; --later-bg: #2b2213;
+      --cut: #f0807a; --cut-bg: #2c1818;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17151b; --surface: #201d25; --border: #4a4550; --text: #ece9f2; --text-muted: #a69fb3;
+    --accent: #ff6a3d; --accent-soft: #3a2117;
+    --now: #5fd6a0; --now-bg: #16261f;
+    --later: #f0b25e; --later-bg: #2b2213;
+    --cut: #f0807a; --cut-bg: #2c1818;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Helvetica Neue", Arial, "Segoe UI", sans-serif;
+    line-height: 1.55; padding: 0 16px 64px;
+  }
+  main { max-width: 860px; margin: 0 auto; }
+  header { padding: 48px 0 16px; border-bottom: 1px solid var(--border); }
+  .eyebrow { text-transform: uppercase; letter-spacing: .14em; font-size: 12px; color: var(--accent); font-weight: 700; font-family: "Courier New", monospace; }
+  h1 { font-size: clamp(32px, 6vw, 48px); margin: 8px 0 4px; text-transform: uppercase; font-weight: 800; letter-spacing: -0.01em; }
+  .tagline { font-size: 16px; color: var(--text-muted); margin: 0 0 16px; max-width: 64ch; }
+  section { margin: 36px 0; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .14em; color: var(--text-muted); margin: 0 0 12px; font-family: "Courier New", monospace; font-weight: 700; }
+  h3 { font-size: 14.5px; margin: 0 0 6px; text-transform: uppercase; letter-spacing: .03em; color: var(--accent); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 2px; padding: 20px 22px; position: relative; }
+  .card::before, .card::after {
+    content: ""; position: absolute; width: 7px; height: 7px; border: 1px solid var(--accent);
+    top: -1px; left: -1px; border-right: none; border-bottom: none;
+  }
+  .card::after { left: auto; right: -1px; border-left: none; border-right: 1px solid var(--accent); transform: scaleX(-1); }
+
+  .journey ol { list-style: none; margin: 0; padding: 0; counter-reset: step; display: grid; gap: 8px; }
+  .journey li {
+    counter-increment: step; position: relative; padding: 12px 16px 12px 48px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 2px; font-size: 14px;
+  }
+  .journey li::before {
+    content: counter(step); position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    width: 22px; height: 22px; background: var(--accent); color: #fff;
+    font-size: 11px; font-weight: 700; font-family: "Courier New", monospace;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .journey li strong { color: var(--accent); }
+  .journey code { background: var(--accent-soft); padding: 1px 5px; border-radius: 2px; font-size: 12.5px; }
+
+  .diagram { width: 100%; height: auto; margin-top: 8px; }
+  .diagram text { fill: var(--text); font-size: 11.5px; font-family: inherit; }
+  .diagram .muted { fill: var(--text-muted); font-size: 10px; }
+  .diagram .label { fill: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .diagram rect.node { fill: var(--surface); stroke: var(--border); }
+  .diagram rect.accent { fill: var(--accent-soft); stroke: var(--accent); }
+  .diagram rect.ext { fill: var(--surface); stroke: var(--border); stroke-dasharray: 4 2; }
+  .diagram path.arrow { stroke: var(--text-muted); stroke-width: 1.3; fill: none; marker-end: url(#arrowhead); }
+
+  details { border: 1px solid var(--border); border-radius: 2px; margin-bottom: 10px; overflow: hidden; background: var(--surface); }
+  summary { cursor: pointer; padding: 14px 18px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; font-size: 13.5px; display: flex; align-items: center; gap: 10px; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "+"; display: inline-block; width: 18px; text-align: center; color: var(--accent); font-family: "Courier New", monospace; }
+  details[open] summary::before { content: "–"; }
+  .items { padding: 2px 18px 16px 46px; font-size: 13.5px; }
+  .items p { margin: 4px 0; }
+  .items .ref { color: var(--text-muted); font-size: 12px; }
+  .count { margin-left: auto; font-size: 11.5px; color: var(--text-muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+  pre {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 2px;
+    padding: 16px 18px; overflow-x: auto; font-size: 12.5px; line-height: 1.6;
+    font-family: "JetBrains Mono", "Courier New", monospace;
+  }
+  .filetree .path { color: var(--text); }
+  .filetree .comment { color: var(--text-muted); }
+
+  .decision { border-left: 3px solid var(--accent); padding: 6px 0 6px 14px; margin: 12px 0; font-size: 13.5px; }
+  .decision .why { color: var(--text-muted); font-size: 13px; }
+
+  .fail-list { display: grid; gap: 10px; }
+  .fail-list .card { padding: 12px 16px; font-size: 13.5px; }
+  .fail-list .what { font-weight: 700; }
+  .fail-list .arrow-to { color: var(--text-muted); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-family: "Courier New", monospace; text-transform: uppercase; letter-spacing: .04em; font-size: 11px; color: var(--text-muted); }
+
+  footer { margin-top: 56px; font-size: 13px; color: var(--text-muted); text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">Devpost Learn · Spec</div>
+    <h1>Atmosphere</h1>
+    <p class="tagline">El plano técnico: sube un modelo rigged, el navegador lo lee directo, y dos rutas de servidor delgadas hablan con Jev y Gemini para decidir el movimiento.</p>
+  </header>
+
+  <section>
+    <h2>Cómo funciona, en palabras simples</h2>
+    <div class="card">
+      <p>Abres una sola página. Subes un archivo 3D que ya tiene esqueleto — algo que descargaste o sacaste de una librería gratuita como Mixamo. El navegador lee ese archivo directamente (sin pasar por ningún servidor) y encuentra cada hueso que puede rotar. Puedes girar el modelo completo, o activar "Lock" y arrastrar huesos individuales para ver qué hacen.</p>
+      <p style="margin-top:10px">Luego escribes una frase describiendo una secuencia de poses. Esa frase va a Gemini, que la parte en una lista corta de poses individuales. Por cada pose, la app toma una foto de la vista 3D actual y se la manda a Jev con una pregunta: "¿esto coincide con la pose?". Si Jev dice que no, pregunta "¿qué hueso debería moverse, y hacia dónde?". La app hace ese ajuste chiquito, toma otra foto, y vuelve a preguntar — hasta 10 veces por pose. Eso es "convergencia": empujoncitos pequeños hacia el objetivo, como ir acomodando un muñeco a mano.</p>
+      <p style="margin-top:10px">Cuando todas las poses están listas, el navegador interpola suavemente entre ellas — eso ya es solo matemática de animación, sin IA — y obtienes un loop. Todo lo generado (el modelo, sus huesos, cada animación) se guarda en el propio navegador (IndexedDB) para que siga ahí si recargas.</p>
+      <p style="margin-top:10px; color:var(--text-muted)">Por qué así: no hay base de datos de servidor ni cuentas porque nada necesita compartirse entre personas. Solo hay un par de rutas de servidor pequeñas porque las API keys de Jev y Gemini no pueden vivir en código del navegador — todo lo demás corre en el cliente.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>El recorrido por el sistema</h2>
+    <div class="journey">
+      <ol>
+        <li>Abre la app → <strong>Next.js</strong> renderiza el dashboard vacío.</li>
+        <li>Sube <code>.glb/.gltf</code> → <strong>GLTFLoader</strong> (three.js) lo parsea en el navegador, sin servidor.</li>
+        <li>El <strong>parser de articulaciones</strong> extrae cada hueso (nombre + jerarquía). Si falla o no hay huesos → error.</li>
+        <li>Modelo + articulaciones se guardan en <strong>IndexedDB</strong>; se renderiza vía <strong>React Three Fiber</strong>.</li>
+        <li>Lock + hover/drag — todo en el cliente, sin red.</li>
+        <li>Prompt de Motion → <code>/api/motion/decompose</code> → <strong>Gemini</strong> → lista ordenada de poses.</li>
+        <li>Por cada pose: screenshot → <code>/api/motion/step</code> → <strong>Jev</strong> (Noul + Choice) → ajuste → repetir hasta 10 veces.</li>
+        <li>Poses convergidas = keyframes → interpolación suave en el cliente.</li>
+        <li>Resultado → nueva entrada en <strong>Animations history</strong> (IndexedDB).</li>
+        <li><strong>Play</strong> reproduce la animación activa en loop.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>Arquitectura</h2>
+    <svg class="diagram" viewBox="0 0 780 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagrama de arquitectura: navegador con Next.js, React Three Fiber e IndexedDB, conectado a dos rutas de API que llaman a Jev y Gemini">
+      <defs>
+        <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" style="fill: var(--text-muted)"/>
+        </marker>
+      </defs>
+
+      <rect class="accent node" x="20" y="20" width="360" height="280" rx="2"/>
+      <text class="label" x="200" y="42" text-anchor="middle">Navegador (cliente)</text>
+
+      <rect class="node" x="40" y="58" width="320" height="56" rx="2"/>
+      <text x="200" y="80" text-anchor="middle">React Three Fiber — viewport 3D</text>
+      <text x="200" y="98" text-anchor="middle" class="muted">modelo, Lock, hover/drag, interpolación</text>
+
+      <rect class="node" x="40" y="126" width="150" height="50" rx="2"/>
+      <text x="115" y="146" text-anchor="middle">Zustand</text>
+      <text x="115" y="162" text-anchor="middle" class="muted">estado en memoria</text>
+
+      <rect class="node" x="210" y="126" width="150" height="50" rx="2"/>
+      <text x="285" y="146" text-anchor="middle">IndexedDB</text>
+      <text x="285" y="162" text-anchor="middle" class="muted">modelo + historial</text>
+
+      <rect class="node" x="40" y="192" width="320" height="86" rx="2"/>
+      <text x="200" y="212" text-anchor="middle">Motion orchestration</text>
+      <text x="200" y="230" text-anchor="middle" class="muted">decompone prompt → bucle de convergencia</text>
+      <text x="200" y="248" text-anchor="middle" class="muted">(llama a las rutas de API abajo)</text>
+      <text x="200" y="266" text-anchor="middle" class="muted">hasta 10 iteraciones por pose</text>
+
+      <path class="arrow" d="M380,160 H440"/>
+
+      <rect class="node" x="440" y="80" width="320" height="56" rx="2"/>
+      <text x="600" y="102" text-anchor="middle">/api/motion/decompose</text>
+      <text x="600" y="120" text-anchor="middle" class="muted">prompt → lista de poses</text>
+
+      <rect class="node" x="440" y="186" width="320" height="56" rx="2"/>
+      <text x="600" y="208" text-anchor="middle">/api/motion/step</text>
+      <text x="600" y="226" text-anchor="middle" class="muted">imagen + pose → ajuste</text>
+
+      <text x="515" y="44" text-anchor="middle" class="muted">(server-side, API keys)</text>
+
+      <path class="arrow" d="M620,108 H650"/>
+      <rect class="ext node" x="650" y="86" width="110" height="44" rx="2"/>
+      <text class="label" x="705" y="104" text-anchor="middle">Gemini</text>
+      <text x="705" y="120" text-anchor="middle" class="muted">JSON mode</text>
+
+      <path class="arrow" d="M620,214 H650"/>
+      <rect class="ext node" x="650" y="192" width="110" height="44" rx="2"/>
+      <text class="label" x="705" y="210" text-anchor="middle">Jev</text>
+      <text x="705" y="226" text-anchor="middle" class="muted">Noul + Choice</text>
+    </svg>
+    <p style="color:var(--text-muted); font-size:12.5px; margin-top:6px">Línea punteada = fuera del proceso de Next.js (servicios externos). Las claves de API viven solo del lado del servidor.</p>
+  </section>
+
+  <section>
+    <h2>Stack</h2>
+    <table>
+      <tr><th>Pieza</th><th>Para qué</th><th>Doc</th></tr>
+      <tr><td>Next.js 15 (App Router) + TypeScript</td><td>Un solo proceso para UI y las 2 rutas de servidor</td><td><a href="https://nextjs.org/docs" style="color:var(--accent)">nextjs.org/docs</a></td></tr>
+      <tr><td>three.js + React Three Fiber + drei</td><td>Motor 3D, como componentes de React</td><td><a href="https://docs.pmnd.rs/react-three-fiber" style="color:var(--accent)">docs.pmnd.rs</a></td></tr>
+      <tr><td>Zustand</td><td>Estado compartido (modelo, Lock, historiales)</td><td><a href="https://zustand.docs.pmnd.rs/" style="color:var(--accent)">zustand.docs.pmnd.rs</a></td></tr>
+      <tr><td>Tailwind CSS</td><td>UI inspirada en Heron</td><td><a href="https://tailwindcss.com/docs" style="color:var(--accent)">tailwindcss.com/docs</a></td></tr>
+      <tr><td>idb</td><td>Persistencia en IndexedDB entre recargas</td><td><a href="https://github.com/jakearchibald/idb" style="color:var(--accent)">github.com/jakearchibald/idb</a></td></tr>
+    </table>
+    <p style="color:var(--text-muted); font-size:12.5px; margin-top:10px">Sin verificar aún, revisar al empezar el build: nombre exacto del modelo Gemini vigente, y el conteo real de tokens por imagen de Jev (el costo estimado usa un supuesto conservador).</p>
+  </section>
+
+  <section>
+    <h2>Dónde corre y cómo probarlo</h2>
+    <div class="card">
+      Local, sin deploy. <code>npm install</code> → <code>npm run dev</code> → <code>http://localhost:3000</code>. Requiere <code>TYPESAFE_API_KEY</code> y <code>GEMINI_API_KEY</code> en <code>.env.local</code> (ya en <code>.gitignore</code>).
+      Para la demo: sube un <code>.glb</code> rigged, mueve un hueso con Lock, abre Motion con un prompt multi-pose, graba la convergencia, presiona Play. Video + repositorio público en GitHub — sin URL desplegada para esta PoC.
+    </div>
+  </section>
+
+  <section>
+    <h2>Componentes</h2>
+
+    <details open>
+      <summary>Upload y parser de articulaciones <span class="count">prd.md › Model Upload & Joint Mapping</span></summary>
+      <div class="items">
+        <p>File input → <code>GLTFLoader</code> parsea el modelo en el navegador → se camina el grafo de escena buscando nodos <code>THREE.Bone</code> → lista ordenada de articulaciones. Se guarda en IndexedDB al tener éxito; error visible si falla o no hay huesos.</p>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Viewport y manipulación manual (Lock) <span class="count">prd.md › Manual Joint Exploration</span></summary>
+      <div class="items">
+        <p><code>&lt;Canvas&gt;</code> de r3f. El estado de Lock cambia el comportamiento del puntero: rotación completa (estilo orbit) vs. raycasting por hueso (hover resalta, arrastrar rota ese hueso).</p>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Orquestación de Motion <span class="count">prd.md › Motion Generation</span></summary>
+      <div class="items">
+        <p><strong>Decomposición:</strong> <code>/api/motion/decompose</code> llama a Gemini con un schema JSON (<code>{ poses: string[] }</code>).</p>
+        <p><strong>Convergencia:</strong> por cada pose, el cliente renderiza el canvas actual, lo manda junto al texto de la pose y la lista de articulaciones a <code>/api/motion/step</code>, que llama a Jev (Noul, luego Choice si no coincide) y devuelve el ajuste. El cliente lo aplica y repite, tope de 10 iteraciones.</p>
+      </div>
+    </details>
+
+    <details open>
+      <summary>Historial de animaciones y reproducción <span class="count">prd.md › Playback</span></summary>
+      <div class="items">
+        <p>Cada generación completa se agrega a una lista (Zustand + IndexedDB), más reciente primero, etiquetada "Animation N". Seleccionar una la activa; Play interpola y reproduce en loop sus keyframes.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Capa de persistencia <span class="count">prd.md › States and Boundaries</span></summary>
+      <div class="items">
+        <p><code>lib/db.ts</code> envuelve IndexedDB (vía <code>idb</code>) con tres almacenes: <code>model</code>, <code>animations</code>, metadata. Se lee al cargar la app para restaurar sin re-subir; se escribe en cada cambio.</p>
+      </div>
+    </details>
+  </section>
+
+  <section>
+    <h2>Modelo de datos</h2>
+    <div class="card">
+      <p><strong>model</strong> — <code>{ fileBlob, fileName, joints: [{ name, id, parentId }] }</code>. Un solo registro, se reemplaza al subir un modelo nuevo.</p>
+      <p style="margin-top:8px"><strong>animations</strong> — lista de <code>{ id, label, createdAt, keyframes: [{ poseDescription, jointAngles }] }</code>. Se agrega, nunca se sobrescribe.</p>
+      <p style="margin-top:8px; color:var(--text-muted)">Lo que NO persiste: selección de Lock/hover, estado de modales, indicadores de carga — se reinician al recargar, y está bien así.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Estructura de archivos</h2>
+    <pre class="filetree"><span class="path">atmosphere/
+├── app/
+│   ├── page.tsx                      </span><span class="comment"># Pantalla única del dashboard</span><span class="path">
+│   ├── layout.tsx
+│   ├── globals.css                   </span><span class="comment"># Tailwind + tokens Heron</span><span class="path">
+│   └── api/
+│       └── motion/
+│           ├── decompose/route.ts    </span><span class="comment"># Prompt -> lista de poses (Gemini)</span><span class="path">
+│           └── step/route.ts         </span><span class="comment"># Una iteración de convergencia (Jev)</span><span class="path">
+├── components/
+│   ├── ModelUpload.tsx
+│   ├── RigViewport.tsx
+│   ├── LockToggle.tsx
+│   ├── MotionModal.tsx
+│   ├── AnimationsHistoryPanel.tsx
+│   └── PlayButton.tsx
+├── lib/
+│   ├── jevClient.ts                  </span><span class="comment"># Wrapper server-side de Jev</span><span class="path">
+│   ├── geminiClient.ts               </span><span class="comment"># Wrapper server-side de Gemini</span><span class="path">
+│   ├── gltfJoints.ts                 </span><span class="comment"># Extrae articulaciones del GLTF</span><span class="path">
+│   ├── convergence.ts                </span><span class="comment"># Orquesta el bucle por pose</span><span class="path">
+│   └── db.ts                         </span><span class="comment"># Helpers de IndexedDB</span><span class="path">
+├── store/
+│   └── useAtmosphereStore.ts         </span><span class="comment"># Zustand</span><span class="path">
+├── devpost/
+├── .env.local                        </span><span class="comment"># TYPESAFE_API_KEY, GEMINI_API_KEY</span><span class="path">
+├── package.json
+└── README.md</span></pre>
+  </section>
+
+  <section>
+    <h2>Servicios externos</h2>
+    <table>
+      <tr><th>Servicio</th><th>Para qué</th><th>Costo</th></tr>
+      <tr><td><strong>Jev</strong> (TypeSafe) — <code>POST /v1/systemone</code></td><td>Noul (¿coincide?) + Choice (qué ajustar)</td><td>$0.042/M tokens de entrada, salida gratis — ~$0.001–0.003 por pose completa</td></tr>
+      <tr><td><strong>Gemini</strong> — <code>generateContent</code> (JSON mode)</td><td>Descompone el prompt en lista de poses</td><td>Key ya existente del aprendiz</td></tr>
+    </table>
+    <p style="color:var(--text-muted); font-size:12.5px; margin-top:10px">Docs: <a href="https://docs.typesafe.ai" style="color:var(--accent)">docs.typesafe.ai</a> · <a href="https://ai.google.dev/gemini-api/docs/json-mode" style="color:var(--accent)">ai.google.dev/gemini-api/docs/json-mode</a></p>
+  </section>
+
+  <section>
+    <h2>Modos de falla importantes</h2>
+    <div class="fail-list">
+      <div class="card"><span class="what">Archivo sin esqueleto / falla al parsear</span> <span class="arrow-to">→</span> mensaje de error en la subida, nada se guarda, se puede reintentar.</div>
+      <div class="card"><span class="what">Jev o Gemini falla o da timeout a mitad de la generación</span> <span class="arrow-to">→</span> se detiene, mensaje de error, no se guarda una entrada de historial parcial/corrupta.</div>
+      <div class="card"><span class="what">La convergencia no llega a coincidir en 10 iteraciones</span> <span class="arrow-to">→</span> se usa la mejor pose alcanzada como keyframe y se sigue con la siguiente pose, sin trabar toda la generación.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Qué se simplificó y por qué</h2>
+    <div class="card">
+      <p><strong>IndexedDB en el navegador</strong> en vez de base de datos de servidor — nada se comparte entre usuarios.</p>
+      <p style="margin-top:8px"><strong>Opciones de ajuste acotadas</strong> (no ángulos continuos) — Jev solo responde Choice/Score/Noul.</p>
+      <p style="margin-top:8px"><strong>Bucle de convergencia con tope fijo</strong> (10 iteraciones) — costo y tiempo predecibles para una PoC.</p>
+      <p style="margin-top:8px"><strong>Descomposición del prompt vía una llamada a Gemini</strong> en vez de un parser manual — más robusto ante frases variadas.</p>
+      <p style="margin-top:8px"><strong>Sin generación de apariencia</strong> — el modelo subido se usa tal cual; la idea de capas por foto queda diferida.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Decisiones y asuntos abiertos</h2>
+    <div class="decision">
+      <strong>Pivote del maniquí propio a un modelo subido ya rigged</strong> — decidido en esta sesión; toda la arquitectura de arriba parte de esa base.
+    </div>
+    <div class="decision">
+      <strong>Jev no puede devolver valores continuos</strong> — la incertidumbre real que se resolvió en esta sesión: se asumía que se le podía pedir un ángulo directo; revisar <code>docs.typesafe.ai</code> mostró que solo existen Choice/Score/Noul, lo que llevó al diseño de convergencia iterativa en vez de una sola llamada.
+      <div class="why">Esto es justo lo que el aprendiz quería entender de Jev, y ahora está basado en la API real verificada, no en una suposición.</div>
+    </div>
+    <div class="decision">
+      <strong>Costo por imagen de Jev es una estimación</strong>, no un número oficial — verificar con la primera llamada real (<code>usage.input_tokens</code>) al empezar el build.
+    </div>
+    <div class="decision">
+      <strong>Nombre exacto del modelo de Gemini</strong> — confirmar contra la lista de modelos vigente al iniciar el build.
+    </div>
+    <div class="decision">
+      <strong>Opciones de eje/dirección por articulación para el Choice de Jev</strong> — este spec asume un conjunto chico por defecto; el conjunto correcto depende de cómo los modelos rigged típicos (ej. exports de Mixamo) orientan sus huesos, más fácil de confirmar inspeccionando un modelo real al inicio del build que de adivinar más aquí.
+    </div>
+    <div class="decision">
+      <strong>Tope de iteraciones (10) y umbral de convergencia</strong> — valores de partida, ajustables una vez visible el comportamiento real (heredado de <code>prd.md › Open Questions</code>).
+    </div>
+  </section>
+
+  <footer>Atmosphere · devpost/spec.md es la versión canónica — este HTML es su acompañante visual.</footer>
+</main>
+</body>
+</html>
