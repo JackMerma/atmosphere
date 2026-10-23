@@ -12,17 +12,36 @@ export interface PoseLandmark {
   visibility: number;
 }
 
+/**
+ * MediaPipe prints "INFO: ..." lines through console.error, which the Next.js
+ * dev overlay reports as a crash. Drop only those lines while it runs.
+ */
+async function withoutMediapipeInfo<T>(fn: () => T | Promise<T>): Promise<T> {
+  const original = console.error;
+  console.error = (...args: unknown[]) => {
+    if (typeof args[0] === "string" && args[0].startsWith("INFO:")) return;
+    original.apply(console, args);
+  };
+  try {
+    return await fn();
+  } finally {
+    console.error = original;
+  }
+}
+
 let landmarkerPromise: Promise<PoseLandmarker> | null = null;
 
 function getLandmarker() {
   landmarkerPromise ??= (async () => {
     const { FilesetResolver, PoseLandmarker } = await import("@mediapipe/tasks-vision");
     const fileset = await FilesetResolver.forVisionTasks(WASM_URL);
-    return PoseLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: MODEL_URL },
-      runningMode: "IMAGE",
-      numPoses: 1,
-    });
+    return withoutMediapipeInfo(() =>
+      PoseLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: MODEL_URL },
+        runningMode: "IMAGE",
+        numPoses: 1,
+      })
+    );
   })().catch((err) => {
     landmarkerPromise = null; // allow a retry after a network failure
     throw err;
@@ -38,7 +57,7 @@ export async function estimatePose(file: Blob): Promise<PoseLandmark[]> {
   const landmarker = await getLandmarker();
   const bitmap = await createImageBitmap(file);
   try {
-    const result = landmarker.detect(bitmap);
+    const result = await withoutMediapipeInfo(() => landmarker.detect(bitmap));
     const world = result.worldLandmarks[0];
     if (!world) throw new Error("No person found in this image.");
     return world;
