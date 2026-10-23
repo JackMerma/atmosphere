@@ -11,6 +11,7 @@ import { parseGltfBuffer } from "@/lib/gltfJoints";
 import { loadModel, loadAnimations } from "@/lib/db";
 import AnimationsHistoryPanel from "@/components/AnimationsHistoryPanel";
 import PlayButton from "@/components/PlayButton";
+import PoseReference from "@/components/PoseReference";
 
 export default function Home() {
   const hasJoints = useAtmosphereStore((s) => s.joints.length > 0);
@@ -60,6 +61,7 @@ export default function Home() {
           <PlayButton />
         </div>
       </div>
+      <PoseReference />
       {motionOpen && <MotionModal onClose={() => setMotionOpen(false)} />}
     </div>
   );

@@ -49,18 +49,23 @@ function getLandmarker() {
   return landmarkerPromise;
 }
 
-/**
- * Estimates the 3D pose of the person in an image. Returns MediaPipe's 33 world
- * landmarks (metres, origin at the hips; x right, y down, z away from the camera).
- */
-export async function estimatePose(file: Blob): Promise<PoseLandmark[]> {
+export interface EstimatedPose {
+  /** 33 world landmarks: metres, origin at the hips; x right, y down, z away from the camera. */
+  world: PoseLandmark[];
+  /** The same 33 landmarks in normalized image coordinates (0-1), for drawing over the photo. */
+  image: PoseLandmark[];
+}
+
+/** Estimates the pose of the person in an image with MediaPipe. */
+export async function estimatePose(file: Blob): Promise<EstimatedPose> {
   const landmarker = await getLandmarker();
   const bitmap = await createImageBitmap(file);
   try {
     const result = await withoutMediapipeInfo(() => landmarker.detect(bitmap));
     const world = result.worldLandmarks[0];
-    if (!world) throw new Error("No person found in this image.");
-    return world;
+    const image = result.landmarks[0];
+    if (!world || !image) throw new Error("No person found in this image.");
+    return { world, image };
   } finally {
     bitmap.close();
   }

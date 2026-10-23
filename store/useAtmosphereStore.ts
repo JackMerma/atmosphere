@@ -2,6 +2,7 @@ import { create } from "zustand";
 import * as THREE from "three";
 import { JointInfo } from "@/lib/gltfJoints";
 import type { Animation } from "@/lib/animations";
+import type { PoseLandmark } from "@/lib/poseEstimation";
 
 /** Imperative handle onto the 3D canvas, registered by ViewportBridge. */
 export interface ViewportApi {
@@ -10,7 +11,17 @@ export interface ViewportApi {
   capture: () => Promise<string>;
 }
 
+/** The photo the initial state was estimated from, with its detected landmarks. */
+export interface PoseReference {
+  /** Object URL of the uploaded image; revoked when replaced or cleared. */
+  url: string;
+  name: string;
+  landmarks: PoseLandmark[];
+}
+
 interface AtmosphereState {
+  poseReference: PoseReference | null;
+  setPoseReference: (reference: PoseReference | null) => void;
   /** Bone rotations (convergence.ts `snapshot` order) Motion starts from; null = rest pose. */
   initialState: number[][] | null;
   initialStateName: string | null;
@@ -40,7 +51,13 @@ interface AtmosphereState {
   setDraggingJoint: (dragging: boolean) => void;
 }
 
-export const useAtmosphereStore = create<AtmosphereState>((set) => ({
+export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
+  poseReference: null,
+  setPoseReference: (reference) => {
+    const previous = get().poseReference;
+    if (previous && previous.url !== reference?.url) URL.revokeObjectURL(previous.url);
+    set({ poseReference: reference });
+  },
   initialState: null,
   initialStateName: null,
   setInitialState: (quats, name = null) =>
@@ -71,7 +88,9 @@ export const useAtmosphereStore = create<AtmosphereState>((set) => ({
   error: null,
   isDraggingJoint: false,
   setLoading: () => set({ isLoading: true, error: null }),
-  setModel: (scene, joints, fileName) =>
+  setModel: (scene, joints, fileName) => {
+    // The previous model's reference photo no longer applies.
+    get().setPoseReference(null);
     set({
       scene,
       joints,
@@ -80,7 +99,8 @@ export const useAtmosphereStore = create<AtmosphereState>((set) => ({
       error: null,
       initialState: null,
       initialStateName: null,
-    }),
+    });
+  },
   setError: (message) =>
     set({
       error: message,
