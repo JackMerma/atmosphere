@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { parseGltfBuffer } from "@/lib/gltfJoints";
 import { saveModel } from "@/lib/db";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
+import CornerBrackets from "@/components/CornerBrackets";
 
 export default function ModelUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -29,20 +30,31 @@ export default function ModelUpload() {
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="inline-flex cursor-pointer items-center justify-center border border-black/90 px-4 py-2 text-sm font-medium hover:bg-black/5">
-        {fileName ? "Replace model" : "Upload rigged model (.glb/.gltf)"}
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".glb,.gltf"
-          className="hidden"
-          onChange={handleFileChange}
-        />
-      </label>
-      {isLoading && <p className="text-sm text-black/60">Parsing model…</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="relative inline-block w-fit">
+        <label className="inline-flex cursor-pointer items-center justify-center border border-hairline px-5 py-2.5 font-mono text-xs uppercase tracking-widest transition-colors hover:border-accent hover:text-accent">
+          {fileName ? "Replace model" : "Upload rigged model (.glb / .gltf)"}
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".glb,.gltf"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </label>
+        <CornerBrackets />
+      </div>
+      {isLoading && (
+        <p className="font-mono text-xs uppercase tracking-widest text-foreground/50">
+          Parsing model…
+        </p>
+      )}
+      {error && (
+        <p className="font-mono text-xs uppercase tracking-widest text-accent">{error}</p>
+      )}
       {fileName && !error && (
-        <p className="text-sm text-black/60">Loaded: {fileName}</p>
+        <p className="font-mono text-xs uppercase tracking-widest text-foreground/50">
+          Loaded: {fileName}
+        </p>
       )}
     </div>
   );

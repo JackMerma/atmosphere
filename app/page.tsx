@@ -34,16 +34,25 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="flex min-h-screen flex-col gap-6 bg-zinc-50 p-8">
-      <h1 className="text-2xl font-bold uppercase tracking-tight">Atmosphere</h1>
-      <ModelUpload />
-      <RigViewport />
-      <LockToggle />
-      {joints.length > 0 && (
-        <p className="text-sm text-black/60">
-          Mapped {joints.length} joint{joints.length === 1 ? "" : "s"}.
+    <div className="flex min-h-screen flex-col">
+      <header className="flex items-center justify-between border-b border-hairline px-8 py-5">
+        <h1 className="font-display text-2xl uppercase tracking-[-0.02em]">
+          Atmosphere
+        </h1>
+        <p className="font-mono text-[11px] uppercase tracking-widest text-foreground/50">
+          Atmosphere anything
         </p>
-      )}
-    </main>
+      </header>
+      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-8">
+        <ModelUpload />
+        <RigViewport />
+        <LockToggle />
+        {joints.length > 0 && (
+          <p className="font-mono text-xs uppercase tracking-widest text-foreground/50">
+            Mapped {joints.length} joint{joints.length === 1 ? "" : "s"}
+          </p>
+        )}
+      </main>
+    </div>
   );
 }
