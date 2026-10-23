@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { parseGltfBuffer } from "@/lib/gltfJoints";
+import { saveModel } from "@/lib/db";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 
 export default function ModelUpload() {
@@ -18,6 +19,7 @@ export default function ModelUpload() {
       const buffer = await file.arrayBuffer();
       const parsed = await parseGltfBuffer(buffer);
       setModel(parsed.scene, parsed.joints, file.name);
+      await saveModel(file, file.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read this file.");
     } finally {

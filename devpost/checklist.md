@@ -11,7 +11,7 @@ Commit convention: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, 
 
 ## Slices
 
-- [ ] **1. Upload a rigged model and see its real joints**
+- [x] **1. Upload a rigged model and see its real joints**
   Becomes usable: Open the app, upload a rigged `.glb` (e.g. from Mixamo), see it rendered standing in its default pose, orbit it freely (Lock off). An invalid or unrigged file shows an error instead of crashing.
   Why now: This is half the unique kernel — reading a real model's real skeleton — and the first real technical risk (GLTFLoader + bone extraction). Includes project bootstrapping (Next.js, TypeScript, Tailwind, R3F canvas, Zustand store) since nothing else can exist without it.
   PRD ref: `prd.md > The Core Journey` (steps 1-4), `prd.md > Model Upload & Joint Mapping`, `prd.md > States and Boundaries` (First use, Upload error, Degenerate rig)
@@ -21,7 +21,7 @@ Commit convention: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, 
   Learner check: Open the app, upload a rigged model you grabbed from Mixamo, and drag to orbit it.
   Commit: `feat: scaffold app and implement model upload with joint parsing`
 
-- [ ] **2. Manual joint exploration (Lock) and persistence across reload**
+- [x] **2. Manual joint exploration (Lock) and persistence across reload**
   Becomes usable: Toggle Lock on to hover/drag individual joints (with a selection highlight) instead of rotating the whole model; the uploaded model and its joint map survive a page reload.
   Why now: Completes the "explore by hand" step of the core loop while the state shape is still simple, and lands persistence before Motion/Animations need the same mechanism.
   PRD ref: `prd.md > Manual Joint Exploration (Lock)`, `prd.md > States and Boundaries` (Persistence)
