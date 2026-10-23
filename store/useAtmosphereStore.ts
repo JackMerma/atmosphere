@@ -8,13 +8,11 @@ interface AtmosphereState {
   fileName: string | null;
   isLoading: boolean;
   error: string | null;
-  locked: boolean;
-  selectedJointId: string | null;
+  isDraggingJoint: boolean;
   setLoading: () => void;
   setModel: (scene: THREE.Group, joints: JointInfo[], fileName: string) => void;
   setError: (message: string) => void;
-  toggleLock: () => void;
-  setSelectedJoint: (id: string | null) => void;
+  setDraggingJoint: (dragging: boolean) => void;
 }
 
 export const useAtmosphereStore = create<AtmosphereState>((set) => ({
@@ -23,19 +21,10 @@ export const useAtmosphereStore = create<AtmosphereState>((set) => ({
   fileName: null,
   isLoading: false,
   error: null,
-  locked: false,
-  selectedJointId: null,
+  isDraggingJoint: false,
   setLoading: () => set({ isLoading: true, error: null }),
   setModel: (scene, joints, fileName) =>
-    set({
-      scene,
-      joints,
-      fileName,
-      isLoading: false,
-      error: null,
-      locked: false,
-      selectedJointId: null,
-    }),
+    set({ scene, joints, fileName, isLoading: false, error: null }),
   setError: (message) =>
     set({
       error: message,
@@ -43,10 +32,6 @@ export const useAtmosphereStore = create<AtmosphereState>((set) => ({
       scene: null,
       joints: [],
       fileName: null,
-      locked: false,
-      selectedJointId: null,
     }),
-  toggleLock: () =>
-    set((s) => ({ locked: !s.locked, selectedJointId: s.locked ? null : s.selectedJointId })),
-  setSelectedJoint: (id) => set({ selectedJointId: id }),
+  setDraggingJoint: (dragging) => set({ isDraggingJoint: dragging }),
 }));

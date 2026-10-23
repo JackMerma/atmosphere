@@ -7,27 +7,23 @@ import JointHandles from "@/components/JointHandles";
 
 export default function RigViewport() {
   const scene = useAtmosphereStore((s) => s.scene);
-  const locked = useAtmosphereStore((s) => s.locked);
-  const setSelectedJoint = useAtmosphereStore((s) => s.setSelectedJoint);
+  const isDraggingJoint = useAtmosphereStore((s) => s.isDraggingJoint);
 
   return (
     <div className="fixed inset-0">
-      <Canvas
-        camera={{ position: [2, 1.6, 3], fov: 45 }}
-        onPointerMissed={() => setSelectedJoint(null)}
-      >
-        <color attach="background" args={["#161513"]} />
-        <ambientLight intensity={0.8} />
-        <directionalLight position={[3, 5, 3]} intensity={1.2} />
+      <Canvas camera={{ position: [2, 1.6, 3], fov: 45 }}>
+        <color attach="background" args={["#f3efe4"]} />
+        <ambientLight intensity={0.9} />
+        <directionalLight position={[3, 5, 3]} intensity={1.1} />
         <Grid
           args={[40, 40]}
           position={[0, 0, 0]}
           cellSize={0.5}
           cellThickness={0.5}
-          cellColor="#3a3733"
+          cellColor="#d9d3c3"
           sectionSize={2.5}
           sectionThickness={1}
-          sectionColor="#55504a"
+          sectionColor="#b3b3af"
           fadeDistance={28}
           fadeStrength={1.2}
           infiniteGrid
@@ -39,10 +35,12 @@ export default function RigViewport() {
           </Bounds>
         )}
         <JointHandles />
-        <OrbitControls makeDefault enabled={!locked} />
+        {/* Camera orbit stays free; only an active joint drag suspends it,
+            so the two gestures (pose a joint vs. look around) never fight. */}
+        <OrbitControls makeDefault enabled={!isDraggingJoint} />
       </Canvas>
       {!scene && (
-        <p className="pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-xs uppercase tracking-widest text-white/40">
+        <p className="pointer-events-none absolute inset-0 flex items-center justify-center font-mono text-xs uppercase tracking-widest text-foreground/40">
           Upload a rigged model to see it here
         </p>
       )}

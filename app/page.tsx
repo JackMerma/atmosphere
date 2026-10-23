@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import ModelUpload from "@/components/ModelUpload";
 import RigViewport from "@/components/RigViewport";
-import LockToggle from "@/components/LockToggle";
 import CornerBrackets from "@/components/CornerBrackets";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { parseGltfBuffer } from "@/lib/gltfJoints";
@@ -40,7 +39,6 @@ export default function Home() {
         <CornerBrackets />
         <div className="flex flex-col gap-3">
           <ModelUpload />
-          <LockToggle />
         </div>
       </div>
     </div>
