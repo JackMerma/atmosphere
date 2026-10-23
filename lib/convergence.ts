@@ -3,10 +3,23 @@ import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { applyWorldRotation, collectBones } from "@/lib/boneMath";
 import type { Direction, StepResult } from "@/lib/jevClient";
 
-export const MAX_ITERATIONS = 10;
 export const MATCH_THRESHOLD = 0.7;
-const INITIAL_STEP_DEGREES = 30;
 const MIN_STEP_DEGREES = 4;
+
+/** User-tunable convergence limits, set from the Motion panel. */
+export interface MotionSettings {
+  /** Max Jev round-trips per pose. */
+  iterations: number;
+  /** First rotation tried on a joint; reversals halve it, repeats grow it up to 2x. */
+  stepDegrees: number;
+}
+
+export const ITERATIONS_RANGE = { min: 5, max: 20, default: 10 };
+export const STEP_RANGE = { min: 10, max: 90, default: 45 };
+export const DEFAULT_SETTINGS: MotionSettings = {
+  iterations: ITERATIONS_RANGE.default,
+  stepDegrees: STEP_RANGE.default,
+};
 
 const OPPOSITE: Record<Direction, Direction> = {
   up: "down",
@@ -20,12 +33,22 @@ const OPPOSITE: Record<Direction, Direction> = {
 /** Tracks, per joint, the last direction tried and the current step size. */
 type StepMemory = Map<string, { direction: Direction; degrees: number }>;
 
-/** Big steps first; when Jev reverses a joint's direction we overshot, so halve that joint's step. */
-function nextStepDegrees(memory: StepMemory, joint: string, direction: Direction) {
+/**
+ * Big steps first; when Jev reverses a joint's direction we overshot, so halve
+ * that joint's step; when it repeats the same direction we undershot, so grow it.
+ */
+function nextStepDegrees(
+  memory: StepMemory,
+  joint: string,
+  direction: Direction,
+  initial: number
+) {
   const previous = memory.get(joint);
-  let degrees = previous ? previous.degrees : INITIAL_STEP_DEGREES;
+  let degrees = previous ? previous.degrees : initial;
   if (previous && previous.direction === OPPOSITE[direction]) {
     degrees = Math.max(degrees / 2, MIN_STEP_DEGREES);
+  } else if (previous && previous.direction === direction) {
+    degrees = Math.min(degrees * 1.5, initial * 2);
   }
   memory.set(joint, { direction, degrees });
   return degrees;
@@ -160,13 +183,14 @@ async function requestStep(
 
 /**
  * Drives the loaded model through each pose in order: render it, ask Jev how
- * well it matches, and if not, nudge one joint — up to MAX_ITERATIONS per
+ * well it matches, and if not, nudge one joint — up to `settings.iterations` per
  * pose. A pose that never matches keeps the best attempt. Starts from the
  * model's rest pose; if anything fails, the pose it had before is restored
  * and nothing is returned, so no partial result can be saved.
  */
 export async function runMotion(
   poses: string[],
+  settings: MotionSettings,
   onProgress: (p: Progress) => void
 ): Promise<Keyframe[]> {
   const { scene, viewport } = useAtmosphereStore.getState();
@@ -178,7 +202,7 @@ export async function runMotion(
 
   const before = snapshot(bones);
   try {
-    return await converge(poses, bones, candidates, viewport, onProgress);
+    return await converge(poses, settings, bones, candidates, viewport, onProgress);
   } catch (err) {
     restore(bones, before);
     throw err;
@@ -187,6 +211,7 @@ export async function runMotion(
 
 async function converge(
   poses: string[],
+  settings: MotionSettings,
   bones: THREE.Bone[],
   candidates: Candidate[],
   viewport: NonNullable<ReturnType<typeof useAtmosphereStore.getState>["viewport"]>,
@@ -201,7 +226,7 @@ async function converge(
     let converged = false;
     const memory: StepMemory = new Map();
 
-    for (let i = 1; i <= MAX_ITERATIONS; i++) {
+    for (let i = 1; i <= settings.iterations; i++) {
       const image = await viewport.capture();
       const step = await requestStep(image, pose, candidates);
 
@@ -223,11 +248,11 @@ async function converge(
         converged = true;
         break;
       }
-      if (i === MAX_ITERATIONS) break;
+      if (i === settings.iterations) break;
 
       const candidate = candidates.find((c) => c.key === step.joint);
       if (candidate) {
-        const degrees = nextStepDegrees(memory, step.joint, step.direction);
+        const degrees = nextStepDegrees(memory, step.joint, step.direction, settings.stepDegrees);
         applyAdjustment(candidate, step.direction, viewport.camera, THREE.MathUtils.degToRad(degrees));
       }
     }
