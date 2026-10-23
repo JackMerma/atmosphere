@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
+import { applyWorldRotation } from "@/lib/boneMath";
 
 const DOT_RADIUS = 0.03;
 const DOT_COLOR = "#fa3600";
@@ -29,14 +30,12 @@ const desiredDir = new THREE.Vector3();
 const currentDir = new THREE.Vector3();
 const handleWorld = new THREE.Vector3();
 const deltaQuat = new THREE.Quaternion();
-const boneWorldQuat = new THREE.Quaternion();
-const newWorldQuat = new THREE.Quaternion();
-const parentWorldQuat = new THREE.Quaternion();
 
 export default function JointHandles() {
   const scene = useAtmosphereStore((s) => s.scene);
   const joints = useAtmosphereStore((s) => s.joints);
   const setDraggingJoint = useAtmosphereStore((s) => s.setDraggingJoint);
+  const capturing = useAtmosphereStore((s) => s.capturing);
   const { camera, gl } = useThree();
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -93,16 +92,7 @@ export default function JointHandles() {
 
       // Swing the parent bone so the dragged joint points at the cursor.
       deltaQuat.setFromUnitVectors(currentDir, desiredDir);
-      drag.bone.getWorldQuaternion(boneWorldQuat);
-      newWorldQuat.multiplyQuaternions(deltaQuat, boneWorldQuat);
-
-      if (drag.bone.parent) {
-        drag.bone.parent.getWorldQuaternion(parentWorldQuat).invert();
-        drag.bone.quaternion.multiplyQuaternions(parentWorldQuat, newWorldQuat);
-      } else {
-        drag.bone.quaternion.copy(newWorldQuat);
-      }
-      drag.bone.updateMatrixWorld(true);
+      applyWorldRotation(drag.bone, deltaQuat);
     }
 
     function endDrag() {
@@ -122,7 +112,7 @@ export default function JointHandles() {
   }, [activeId, camera, gl, setDraggingJoint]);
 
   return (
-    <>
+    <group visible={!capturing}>
       {bones.map((bone) => (
         <JointDot
           key={bone.uuid}
@@ -131,7 +121,7 @@ export default function JointHandles() {
           onGrab={beginDrag}
         />
       ))}
-    </>
+    </group>
   );
 }
 

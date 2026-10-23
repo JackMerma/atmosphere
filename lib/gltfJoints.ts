@@ -27,6 +27,7 @@ export function parseGltfBuffer(buffer: ArrayBuffer): Promise<ParsedModel> {
 
         gltf.scene.traverse((object) => {
           if (object instanceof THREE.Bone) {
+            object.userData.restQuaternion = object.quaternion.toArray();
             const parent = object.parent;
             joints.push({
               id: object.uuid,

@@ -4,6 +4,7 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Grid, Bounds } from "@react-three/drei";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import JointHandles from "@/components/JointHandles";
+import ViewportBridge from "@/components/ViewportBridge";
 
 export default function RigViewport() {
   const scene = useAtmosphereStore((s) => s.scene);
@@ -11,7 +12,11 @@ export default function RigViewport() {
 
   return (
     <div className="fixed inset-0">
-      <Canvas camera={{ position: [2, 1.6, 3], fov: 45 }}>
+      <Canvas
+        camera={{ position: [2, 1.6, 3], fov: 45 }}
+        gl={{ preserveDrawingBuffer: true }}
+      >
+        <ViewportBridge />
         <color attach="background" args={["#f3efe4"]} />
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 5, 3]} intensity={1.1} />

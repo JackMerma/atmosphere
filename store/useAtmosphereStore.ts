@@ -2,7 +2,18 @@ import { create } from "zustand";
 import * as THREE from "three";
 import { JointInfo } from "@/lib/gltfJoints";
 
+/** Imperative handle onto the 3D canvas, registered by ViewportBridge. */
+export interface ViewportApi {
+  camera: THREE.Camera;
+  /** Renders the model (joint dots hidden), cropped around it, as a JPEG data URL. */
+  capture: () => Promise<string>;
+}
+
 interface AtmosphereState {
+  viewport: ViewportApi | null;
+  capturing: boolean;
+  setViewport: (viewport: ViewportApi | null) => void;
+  setCapturing: (capturing: boolean) => void;
   scene: THREE.Group | null;
   joints: JointInfo[];
   fileName: string | null;
@@ -16,6 +27,10 @@ interface AtmosphereState {
 }
 
 export const useAtmosphereStore = create<AtmosphereState>((set) => ({
+  viewport: null,
+  capturing: false,
+  setViewport: (viewport) => set({ viewport }),
+  setCapturing: (capturing) => set({ capturing }),
   scene: null,
   joints: [],
   fileName: null,

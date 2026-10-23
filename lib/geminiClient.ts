@@ -2,8 +2,10 @@ const DEFAULT_MODEL = "gemini-2.5-flash";
 
 const SYSTEM_PROMPT =
   "Split the user's motion description into an ordered list of short, self-contained " +
-  "static pose descriptions (one per described state, in order). Describe each pose as a " +
-  "body position only, with no transitions. Return JSON.";
+  "static pose descriptions, one per state the user explicitly described, in order. " +
+  "Do NOT invent a starting, resting, or ending pose the user did not mention: a single " +
+  "described pose yields a single entry. Describe each pose as a body position only, with " +
+  "no transitions. Return JSON.";
 
 export async function decomposePrompt(prompt: string): Promise<string[]> {
   const apiKey = process.env.GEMINI_API_KEY;
