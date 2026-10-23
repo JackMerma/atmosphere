@@ -16,7 +16,11 @@ export interface PoseReference {
   /** Object URL of the uploaded image; revoked when replaced or cleared. */
   url: string;
   name: string;
+  /** Normalized image coordinates (0-1); what the user sees and drags. */
   landmarks: PoseLandmark[];
+  /** World landmarks the model pose is solved from; kept in step with `landmarks` when edited. */
+  world: PoseLandmark[];
+  size: { width: number; height: number };
 }
 
 interface AtmosphereState {

@@ -3,7 +3,7 @@ import type { PoseLandmarker } from "@mediapipe/tasks-vision";
 /** Must match the installed @mediapipe/tasks-vision version. */
 const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.1.1/wasm";
 const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task";
+  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task";
 
 export interface PoseLandmark {
   x: number;
@@ -40,6 +40,9 @@ function getLandmarker() {
         baseOptions: { modelAssetPath: MODEL_URL },
         runningMode: "IMAGE",
         numPoses: 1,
+        // Looser than the defaults so stylised or partly occluded figures are still found.
+        minPoseDetectionConfidence: 0.3,
+        minPosePresenceConfidence: 0.3,
       })
     );
   })().catch((err) => {
@@ -54,6 +57,8 @@ export interface EstimatedPose {
   world: PoseLandmark[];
   /** The same 33 landmarks in normalized image coordinates (0-1), for drawing over the photo. */
   image: PoseLandmark[];
+  /** Pixel size of the source image, to turn normalized coordinates into real distances. */
+  size: { width: number; height: number };
 }
 
 /** Estimates the pose of the person in an image with MediaPipe. */
@@ -65,7 +70,7 @@ export async function estimatePose(file: Blob): Promise<EstimatedPose> {
     const world = result.worldLandmarks[0];
     const image = result.landmarks[0];
     if (!world || !image) throw new Error("No person found in this image.");
-    return { world, image };
+    return { world, image, size: { width: bitmap.width, height: bitmap.height } };
   } finally {
     bitmap.close();
   }

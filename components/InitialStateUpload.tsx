@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { estimatePose } from "@/lib/poseEstimation";
-import { applyPoseToRig } from "@/lib/poseRetarget";
+import { poseModelFrom } from "@/lib/initialPose";
 import { collectBones } from "@/lib/boneMath";
 import { resetToRest, snapshotPose } from "@/lib/convergence";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
@@ -65,11 +65,16 @@ export default function InitialStateUpload() {
     setBusy(true);
     setError(null);
     try {
-      const { world, image } = await estimatePose(file);
-      resetToRest(bones);
-      applyPoseToRig(bones, world, viewport.camera);
+      const { world, image, size } = await estimatePose(file);
+      poseModelFrom(world);
       setInitialState(snapshotPose(bones), file.name);
-      setPoseReference({ url: URL.createObjectURL(file), name: file.name, landmarks: image });
+      setPoseReference({
+        url: URL.createObjectURL(file),
+        name: file.name,
+        landmarks: image,
+        world,
+        size,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read the pose from this image.");
     } finally {
