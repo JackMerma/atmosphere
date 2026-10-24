@@ -21,23 +21,39 @@ export interface HumanoidRig {
 
 export type Part = "thigh" | "calf" | "foot" | "upperArm" | "foreArm" | "neck";
 
-/** Strips side markers ("Left", "_L", ".R") and returns them separately. */
+/**
+ * Splits a bone name into which side of the body it is on and what it is.
+ *
+ * Rigs mark the side in every style there is: Mixamo spells out "LeftArm",
+ * Blender appends "_L" or ".R", and plenty of hand-made rigs just tack a
+ * capital on the end, as in "ArmL" or "ThigsR". The capital matters -- it is
+ * what tells "ShoulderL" (left shoulder) from "Shoulder" (no side at all).
+ */
 function parseName(raw: string): { side: Side | null; core: string } {
-  let name = raw.replace(/^mixamorig[:_]?/i, "").toLowerCase();
+  let name = raw.replace(/^mixamorig[:_]?/i, "");
   let side: Side | null = null;
-  if (/left/.test(name)) side = "l";
-  else if (/right/.test(name)) side = "r";
-  name = name.replace(/left|right/g, "");
-  if (!side) {
-    const m = name.match(/(?:^|[^a-z])([lr])(?=[^a-z]|$)/);
-    if (m) side = m[1] as Side;
+
+  if (/left/i.test(name)) {
+    side = "l";
+    name = name.replace(/left/gi, "");
+  } else if (/right/i.test(name)) {
+    side = "r";
+    name = name.replace(/right/gi, "");
+  } else {
+    const tagged = name.match(/(?:[_.\- ]([LlRr])|(?<=[a-z0-9])([LR]))\d*$/);
+    if (tagged) {
+      side = (tagged[1] ?? tagged[2]).toLowerCase() === "l" ? "l" : "r";
+      name = name.slice(0, tagged.index);
+    }
   }
-  return { side, core: name.replace(/(^|[^a-z])[lr](?=[^a-z]|$)/g, "$1").replace(/[^a-z]/g, "") };
+  return { side, core: name.toLowerCase().replace(/[^a-z]/g, "") };
 }
 
 function classify(core: string): Part | null {
-  if (/toe|hand|finger|thumb|index|middle|ring|pinky/.test(core)) return null;
-  if (/^(upleg|upperleg|thigh|femur)/.test(core)) return "thigh";
+  // Extremities and IK targets sit alongside the real limbs and must not stand in for them.
+  if (/toe|hand|finger|thumb|index|middle|ring|pinky|pinkie/.test(core)) return null;
+  if (/^ik/.test(core)) return null;
+  if (/^(upleg|upperleg|thig|femur)/.test(core)) return "thigh";
   if (/^(leg|lowerleg|calf|shin|knee)/.test(core)) return "calf";
   if (/foot|ankle/.test(core)) return "foot";
   if (/forearm|lowerarm|elbow/.test(core)) return "foreArm";

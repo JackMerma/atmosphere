@@ -18,7 +18,7 @@ export default function ModelUpload() {
     setLoading();
     try {
       const buffer = await file.arrayBuffer();
-      const parsed = await parseModelPair(buffer);
+      const parsed = await parseModelPair(buffer, file.name);
       setModel(parsed.scene, parsed.finalScene, parsed.joints, file.name);
       await saveModel(file, file.name);
       // Saved animations are rotations for the previous model's bones.
@@ -40,7 +40,7 @@ export default function ModelUpload() {
         <input
           ref={inputRef}
           type="file"
-          accept=".glb,.gltf"
+          accept=".glb,.gltf,.fbx,.zip"
           className="hidden"
           onChange={handleFileChange}
         />

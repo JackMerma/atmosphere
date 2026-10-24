@@ -27,7 +27,7 @@ export default function Home() {
       setLoading();
       try {
         const buffer = await stored.fileBlob.arrayBuffer();
-        const parsed = await parseModelPair(buffer);
+        const parsed = await parseModelPair(buffer, stored.fileName);
         setModel(parsed.scene, parsed.finalScene, parsed.joints, stored.fileName);
       } catch (err) {
         setError(

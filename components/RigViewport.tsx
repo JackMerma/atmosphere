@@ -54,7 +54,7 @@ export default function RigViewport() {
       {!scene && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <p className="bg-background px-4 py-2 font-mono text-xs uppercase tracking-widest text-foreground/50">
-            Upload a rigged .glb or .gltf model to begin
+            Upload a rigged model to begin · .glb .gltf .fbx or .zip
           </p>
         </div>
       )}
