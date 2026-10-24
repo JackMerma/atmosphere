@@ -12,23 +12,35 @@ import type { Animation } from "@/lib/animations";
 
 /** Older animations: seconds per segment of rest -> keyframes -> rest. */
 const LEGACY_SECONDS_PER_SEGMENT = 1.2;
-/** Timeline animations rest on the final pose, then blend back to the start to loop. */
+/** A one-off animation rests on its final pose, then blends back to the start to repeat. */
 const HOLD_AT_END = 0.4;
 const RETURN_TIME = 0.6;
+/** A cycle has no rest: it returns in about the length of one of its own segments. */
+const MIN_CYCLE_RETURN = 0.12;
 
 const qa = new THREE.Quaternion();
 const qb = new THREE.Quaternion();
 const smoothstep = (t: number) => t * t * (3 - 2 * t);
+
+/** How long an animation rests on its last pose, and how long it takes to return. */
+function tail(animation: Animation) {
+  const total = animation.duration ?? 0;
+  if (!animation.loop) return { hold: HOLD_AT_END, back: RETURN_TIME };
+  const segments = Math.max(1, animation.keyframes.length - 1);
+  return { hold: 0, back: Math.max(MIN_CYCLE_RETURN, total / segments) };
+}
 
 /** The pose of a timeline animation at `time`, as [from, to, progress]. */
 function sampleTimeline(animation: Animation, time: number) {
   const frames = animation.keyframes;
   const total = animation.duration ?? 0;
   const last = frames[frames.length - 1];
+  const { hold, back } = tail(animation);
 
-  if (time >= total + HOLD_AT_END) {
-    const u = Math.min(1, (time - total - HOLD_AT_END) / RETURN_TIME);
-    return { from: last.quats, to: frames[0].quats, w: ease("inOut", u) };
+  if (time >= total + hold) {
+    const u = Math.min(1, (time - total - hold) / back);
+    // A cycle flows on through; a one-off eases back to where it began.
+    return { from: last.quats, to: frames[0].quats, w: animation.loop ? u : ease("inOut", u) };
   }
   if (time >= total) return { from: last.quats, to: last.quats, w: 0 };
 
@@ -68,7 +80,8 @@ export default function PlaybackDriver() {
 
     if (animation.duration !== undefined) {
       if (animation.keyframes.some((k) => k.quats.length !== bones.length)) return;
-      const cycle = animation.duration + HOLD_AT_END + RETURN_TIME;
+      const { hold, back } = tail(animation);
+      const cycle = animation.duration + hold + back;
       clock.current = (clock.current + delta) % cycle;
       const { from, to, w } = sampleTimeline(animation, clock.current);
       bones.forEach((bone, i) => {

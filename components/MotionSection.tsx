@@ -99,11 +99,11 @@ export default function MotionSection() {
 
     try {
       const result = await generateAnimation(prompt, settings, setProgress);
-      const animation = await createAnimation(result.keyframes, result.duration);
+      const animation = await createAnimation(result.keyframes, result.duration, result.loop);
       toast.success(
-        `${animation.label} saved · ${result.duration.toFixed(1)}s · ${result.beats} directed beat${
+        `${animation.label} saved · ${result.duration.toFixed(1)}s · ${result.beats} pose${
           result.beats === 1 ? "" : "s"
-        }`
+        }${result.loop ? " · loops" : ""}`
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not build the animation.");
@@ -138,7 +138,7 @@ export default function MotionSection() {
             onChange={(e) => setPrompt(e.target.value)}
             rows={4}
             disabled={busy}
-            placeholder="Optional. Direct the motion between the two states: speed, impacts, what the body does on the way (e.g. falls fast, flails, gets caught mid-air and hangs suspended)."
+            placeholder="Optional. Describe an action and the planner authors every pose it needs, with its own timing (e.g. walking, a cartwheel, hit mid-leap and caught in a web). Leave empty to blend the two states directly."
             className="resize-none border border-hairline bg-transparent p-2 text-sm outline-none focus:border-accent disabled:opacity-50"
           />
           <div className="flex flex-col gap-2 font-mono text-xs uppercase tracking-widest">
@@ -181,7 +181,7 @@ export default function MotionSection() {
               <p>
                 {progress.phase === "planning"
                   ? progress.text
-                  : `Beat ${progress.keyframe}/${progress.keyframeCount} · round ${progress.round}/${progress.rounds} · match ${progress.match?.toFixed(2)}`}
+                  : `Pose ${progress.keyframe}/${progress.keyframeCount} · round ${progress.round}/${progress.rounds} · match ${progress.match?.toFixed(2)}`}
               </p>
               {progress.phase === "refining" && (
                 <p className="line-clamp-3 normal-case tracking-normal">{progress.text}</p>

@@ -27,10 +27,12 @@ export interface Animation {
   start?: PoseQuats;
   /** Seconds from the first to the last keyframe; present on timeline animations. */
   duration?: number;
+  /** A repeating cycle: playback runs the last pose straight back into the first. */
+  loop?: boolean;
 }
 
 /** Records a finished generation as a new history entry and makes it the active one. */
-export async function createAnimation(keyframes: Keyframe[], duration: number) {
+export async function createAnimation(keyframes: Keyframe[], duration: number, loop = false) {
   const { animations, addAnimation } = useAtmosphereStore.getState();
   const index = animations.reduce((max, a) => Math.max(max, a.index), 0) + 1;
   const animation: Animation = {
@@ -40,6 +42,7 @@ export async function createAnimation(keyframes: Keyframe[], duration: number) {
     createdAt: Date.now(),
     keyframes,
     duration,
+    loop,
   };
   addAnimation(animation);
   await saveAnimation(animation);

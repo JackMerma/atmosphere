@@ -11,15 +11,19 @@ export async function POST(request: Request) {
   if (!prompt) {
     return NextResponse.json({ error: "Describe the motion first." }, { status: 400 });
   }
-  if (!isPose(body?.start) || !isPose(body?.end)) {
+  if (!isPose(body?.rest)) {
     return NextResponse.json(
-      { error: "The start and end poses could not be read from this model." },
+      { error: "This model's pose could not be read as a humanoid skeleton." },
       { status: 400 }
     );
   }
 
   try {
-    return NextResponse.json(await planMotion(prompt, body.start, body.end));
+    const pinned = {
+      start: isPose(body?.start) ? body.start : undefined,
+      end: isPose(body?.end) ? body.end : undefined,
+    };
+    return NextResponse.json(await planMotion(prompt, body.rest, pinned));
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not plan the motion.";
     return NextResponse.json({ error: message }, { status: 502 });
