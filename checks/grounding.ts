@@ -93,6 +93,22 @@ async function run(label: string, file: string) {
   const deep = hipsY();
   check(label + ": a deeper crouch drops further", deep < shallow && shallow < standingHips,
     `${standingHips.toFixed(2)} > ${shallow.toFixed(2)} > ${deep.toFixed(2)}`);
+
+  // The bob dial scales that contact: half as strong drops the body half as far,
+  // and off leaves it floating where the bones put it.
+  crouch(60);
+  const floating = hipsY();
+  groundModel(scene, bones, 0);
+  check(label + ": bob 0 leaves the figure floating", Math.abs(hipsY() - floating) < 1e-6,
+    "hips " + hipsY().toFixed(3));
+  groundModel(scene, bones, 0.5);
+  const halfWay = hipsY();
+  groundModel(scene, bones, 1);
+  const planted = hipsY();
+  const halfDrop = floating - halfWay;
+  const fullDrop = floating - planted;
+  check(label + ": bob 0.5 moves the body half as far", Math.abs(halfDrop / fullDrop - 0.5) < 0.1,
+    `drop ${halfDrop.toFixed(3)} of ${fullDrop.toFixed(3)}`);
 }
 
 async function main() {

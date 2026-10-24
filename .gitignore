@@ -2,6 +2,7 @@ devpost/learner-profile.md
 .env
 .env.*
 !.env.example
+.claude
 
 # dependencies
 /node_modules

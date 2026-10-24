@@ -2,6 +2,7 @@ import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { saveAnimation } from "@/lib/db";
 import type { Ease } from "@/lib/easing";
 import type { PoseQuats } from "@/lib/pose";
+import { DEFAULT_MOTION, type MotionParams } from "@/lib/motionParams";
 
 export interface Keyframe {
   /** What this pose is; for the first and last keyframe, the state they came from. */
@@ -31,10 +32,17 @@ export interface Animation {
   duration?: number;
   /** A repeating cycle: playback runs the last pose straight back into the first. */
   loop?: boolean;
+  /** The dials playback reads: how far poses commit, the drag, the bob, the timing. */
+  motion?: MotionParams;
 }
 
 /** Records a finished generation as a new history entry and makes it the active one. */
-export async function createAnimation(keyframes: Keyframe[], duration: number, loop = false) {
+export async function createAnimation(
+  keyframes: Keyframe[],
+  duration: number,
+  loop = false,
+  motion: MotionParams = DEFAULT_MOTION
+) {
   const { animations, addAnimation } = useAtmosphereStore.getState();
   const index = animations.reduce((max, a) => Math.max(max, a.index), 0) + 1;
   const animation: Animation = {
@@ -45,6 +53,7 @@ export async function createAnimation(keyframes: Keyframe[], duration: number, l
     keyframes,
     duration,
     loop,
+    motion,
   };
   addAnimation(animation);
   await saveAnimation(animation);

@@ -56,10 +56,15 @@ const position = new THREE.Vector3();
  * and holding it on the floor pushes the whole body up and down instead. The
  * bob, the dip into a crouch and the lift out of it all fall out of one rule.
  *
+ * `strength` scales how much of that contact is applied: 1 plants the foot on
+ * the floor, 0 leaves the figure floating as it did before any of this, and
+ * over 1 exaggerates the bob. It is a dial because the right amount is a
+ * judgement about how the motion reads, not a fact about the model.
+ *
  * Returns false when the model has no feet to stand on, so the caller can fall
  * back to holding it where it was.
  */
-export function groundModel(model: THREE.Object3D, bones: THREE.Bone[]): boolean {
+export function groundModel(model: THREE.Object3D, bones: THREE.Bone[], strength = 1): boolean {
   const footing = footingFor(model, bones);
   if (!footing) return false;
 
@@ -71,7 +76,7 @@ export function groundModel(model: THREE.Object3D, bones: THREE.Bone[]): boolean
   if (!Number.isFinite(lowest)) return false;
 
   // The stage group carries no rotation or scale, so a world drop is a local one.
-  model.position.y -= lowest;
+  model.position.y -= lowest * strength;
   model.updateMatrixWorld(true);
   return true;
 }
