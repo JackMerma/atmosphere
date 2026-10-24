@@ -8,6 +8,7 @@ import { collectBones } from "@/lib/boneMath";
 import { settlePose } from "@/lib/settle";
 import { applySlot } from "@/lib/pose";
 import { DEFAULT_MOTION } from "@/lib/motionParams";
+import { GROUND_AT_REST, placeGround } from "@/lib/planting";
 import { timelineFor, type Timeline } from "@/lib/timeline";
 import type { Animation } from "@/lib/animations";
 
@@ -39,6 +40,7 @@ export default function PlaybackDriver() {
       if (wasPlaying.current) {
         wasPlaying.current = false;
         applySlot("initial");
+        placeGround(GROUND_AT_REST);
       }
       return;
     }
@@ -60,9 +62,10 @@ export default function PlaybackDriver() {
           timeline: timelineFor(animation, scene, bones, animation.motion ?? DEFAULT_MOTION),
         };
       }
-      const { timeline } = bound.current;
-      clock.current = (clock.current + delta) % timeline.cycle;
-      timeline.pose(clock.current);
+      // The clock is NOT wrapped: the timeline repeats on its own, and the
+      // travel has to carry on across repeats rather than snap back at the seam.
+      clock.current += delta;
+      bound.current.timeline.pose(clock.current);
       return;
     }
 
