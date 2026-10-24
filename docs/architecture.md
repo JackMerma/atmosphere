@@ -87,6 +87,7 @@ lib/
   motionParams.ts   the dials: amplitude, drag, bob, arm phase, spacing
   motionStrip.ts    a whole animation as one numbered sheet of frames
   tuneMotion.ts     Jev picking between ways of playing the same poses
+  viewAngles.ts     the camera yaws a candidate or a motion is judged from
 ```
 
 ### Segment vectors

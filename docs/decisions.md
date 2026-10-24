@@ -62,14 +62,30 @@ thumbnails up, is an image six times wider than it is tall, and Jev refuses it
 outright: `Invalid image dimensions`. Three across and two down is the same
 sheet, accepted, with the numbers carrying the reading order.
 
-## Candidates are shown from two angles
+## Candidates are shown from six angles, not two
 
 A walk lives on the front-to-back axis. Head-on, that axis is *depth*: a leg
 forward and a leg back look nearly identical. We were asking Jev to judge a
 picture in which the thing that mattered was invisible.
 
-Every candidate is now rendered head-on **and** at 55°, the angle animators
-check poses from for exactly this reason.
+The first fix was two views — head-on and 55°, the angle animators check poses
+from — which solved that one axis. It never solved the general case: a limb
+hidden behind the torso from both of those is invisible to the judge however
+wrong it is, and nothing ever showed the body from the side or the back.
+
+**Now** (`lib/viewAngles.ts`) pose candidates and photo attention are shown
+from six views, spaced 60° apart around the full turn — `[0, 60, 120, 180, 240,
+300]` — which puts every part of the body in profile from at least one of
+them. Verified against the real API: a pose-ranking call at the default
+candidate count runs 0.6–1.3s and 730–950KB, no errors.
+
+**Motion sheets stay at three.** A motion sheet already bundles six time-samples
+into one image; giving it six camera angles too multiplies to a request Jev's
+own endpoint refuses outright — hit for real at four candidates × six angles ×
+six frames = 24 images, 1.7MB, `max_tokens_exceeded`. `MOTION_VIEWS` takes every
+other one of the same six (`[0, 120, 240]`), confirmed to go through at the
+default settings (800–950KB, 0.6–1.3s per call). Still three times the single
+blind axis motion ranking had before.
 
 ## The planner authors every pose, not just the middle
 

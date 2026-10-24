@@ -60,9 +60,12 @@ For each pose in the first half:
      leaning it toward or away from the viewer, turning the body — which are the
      errors pose estimation actually makes. Once those are spent it falls back
      to random multi-limb nudges that shrink as they stop paying off.
-   - Render every candidate **from two angles** (head-on and three-quarter) and
-     ask Jev, in one call, which is best. **The pose we already have is among
-     the options**, so a round can hold but never make things worse.
+   - Render every candidate **from six angles**, spaced 60° apart around the
+     full turn, and ask Jev, in one call, which is best. **The pose we already
+     have is among the options**, so a round can hold but never make things
+     worse. Six, not two, because two — head-on and three-quarter — only solved
+     the front-to-back blind spot; a limb hidden behind the torso from both of
+     them was still invisible (see `decisions.md`).
 
 Every candidate goes through `settlePose`, so none of them can be an impossible
 body.
@@ -121,9 +124,14 @@ For a 4-pose walk cycle at the default settings (10 rounds, 4 candidates),
 | Jev scoring (reporting only) | 4 |
 | Jev motion ranking | 4 rounds = 4 |
 
-Each pose-ranking call carries 10 images (5 candidates × 2 views) at about 2k
-input tokens. A motion round carries 8 sheets (4 variants × 2 angles) at about
-**12.5k input tokens**, which is why it defaults to 4 rounds rather than 10.
+Each pose-ranking call carries 30 images (5 candidates × 6 views, see
+`decisions.md`): measured against the real API at 730–950KB and 0.6–1.3s per
+call. A motion round carries 12 sheets (4 variants × 3 views — motion sheets
+stay at three angles, not six, for the reason in `decisions.md`): also
+730–950KB and 0.6–1.3s per call, each sheet already a 3×2 grid of six frames.
+Six angles on a motion sheet (24 images, 1.7MB) is confirmed to fail outright
+(`max_tokens_exceeded`), which is the ceiling `Candidates` and the view counts
+both have to respect.
 
 **Pose rounds** and **Motion rounds** can each be set to 0 independently, which
 is how to see what either half is worth on its own.

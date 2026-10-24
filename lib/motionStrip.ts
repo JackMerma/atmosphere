@@ -2,6 +2,7 @@ import { bonesOf, sceneOf } from "@/lib/pose";
 import { timelineFor, type Motion } from "@/lib/timeline";
 import type { MotionParams } from "@/lib/motionParams";
 import { useAtmosphereStore, type Side } from "@/store/useAtmosphereStore";
+import { MOTION_VIEWS } from "@/lib/viewAngles";
 
 /**
  * Phases of the motion a strip is made of.
@@ -12,8 +13,8 @@ import { useAtmosphereStore, type Side } from "@/store/useAtmosphereStore";
  * cycle, so nothing lands only on the keyframes.
  */
 const FRAMES = 6;
-/** Head-on, and the angle animators check a pose from, where depth is visible. */
-const VIEWS = [0, 55];
+/** Angles the motion is shown from; see `viewAngles.ts` for why three here and not six. */
+const VIEWS = MOTION_VIEWS;
 /**
  * How the frames are laid out, and how large each one is.
  *

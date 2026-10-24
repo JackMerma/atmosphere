@@ -11,6 +11,7 @@ import {
   type Vec3,
 } from "@/lib/poseRetarget";
 import { useAtmosphereStore, type Side } from "@/store/useAtmosphereStore";
+import { JUDGE_VIEWS } from "@/lib/viewAngles";
 
 /** A pose scoring at least this is considered matched; refinement stops there. */
 export const MATCH_THRESHOLD = 0.7;
@@ -34,12 +35,8 @@ export interface RefineProgress {
   match: number;
 }
 
-/**
- * Angles the figure is shown from, as a yaw around the model in degrees.
- * Front-on alone hides the front-to-back axis, which is exactly the one a walk,
- * a reach or a kick lives on; the three-quarter view shows both.
- */
-const VIEWS = [0, 55];
+/** Angles the figure is shown from; see `viewAngles.ts` for why six, and why these six. */
+const VIEWS = JUDGE_VIEWS;
 
 async function rank(candidates: string[][], target: Target): Promise<number> {
   const res = await fetch("/api/motion/rank", {
