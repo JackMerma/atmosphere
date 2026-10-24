@@ -38,6 +38,7 @@ interface AtmosphereState {
   setAnimations: (animations: Animation[]) => void;
   addAnimation: (animation: Animation) => void;
   setActiveAnimation: (id: string) => void;
+  removeAnimation: (id: string) => void;
   setPlaying: (playing: boolean) => void;
   viewport: ViewportApi | null;
   capturing: boolean;
@@ -80,6 +81,16 @@ export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
       activeAnimationId: animation.id,
     })),
   setActiveAnimation: (id) => set({ activeAnimationId: id }),
+  removeAnimation: (id) =>
+    set((s) => {
+      const animations = s.animations.filter((a) => a.id !== id);
+      const removedActive = s.activeAnimationId === id;
+      return {
+        animations,
+        activeAnimationId: removedActive ? (animations[0]?.id ?? null) : s.activeAnimationId,
+        playing: removedActive ? false : s.playing,
+      };
+    }),
   setPlaying: (playing) => set({ playing }),
   viewport: null,
   capturing: false,

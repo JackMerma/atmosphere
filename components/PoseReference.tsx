@@ -46,7 +46,8 @@ export default function PoseReference() {
   if (!reference) return null;
 
   const { url, name, landmarks } = reference;
-  const visible = (i: number) => landmarks[i]?.visibility >= MIN_VISIBILITY;
+  /** Low-confidence landmarks are still shown (and draggable), just dimmed. */
+  const unsure = (i: number) => landmarks[i].visibility < MIN_VISIBILITY;
 
   function move(e: React.PointerEvent, i: number) {
     const rect = frameRef.current?.getBoundingClientRect();
@@ -60,7 +61,7 @@ export default function PoseReference() {
 
     // Image x/y map to world x/y by the photo's scale; depth (z) is left as estimated.
     const nextLandmarks = current.landmarks.slice();
-    nextLandmarks[i] = { ...before, x, y };
+    nextLandmarks[i] = { ...before, x, y, visibility: 1 }; // placed by hand: now trusted
     const nextWorld = current.world.slice();
     nextWorld[i] = {
       ...current.world[i],
@@ -88,7 +89,7 @@ export default function PoseReference() {
           preserveAspectRatio="none"
           className="pointer-events-none absolute inset-0 h-full w-full"
         >
-          {BONES.filter(([a, b]) => visible(a) && visible(b)).map(([a, b]) => (
+          {BONES.map(([a, b]) => (
             <line
               key={`${a}-${b}`}
               x1={landmarks[a].x}
@@ -97,11 +98,13 @@ export default function PoseReference() {
               y2={landmarks[b].y}
               stroke="#fa3600"
               strokeWidth={2}
+              strokeDasharray={unsure(a) || unsure(b) ? "4 3" : undefined}
+              opacity={unsure(a) || unsure(b) ? 0.55 : 1}
               vectorEffect="non-scaling-stroke"
             />
           ))}
         </svg>
-        {DOTS.filter(visible).map((i) => (
+        {DOTS.map((i) => (
           <span
             key={i}
             onPointerDown={(e) => {
@@ -114,7 +117,7 @@ export default function PoseReference() {
             onPointerCancel={() => setDragging(null)}
             className={`absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 touch-none rounded-full border border-white ${
               dragging === i ? "bg-[#0090ff]" : "bg-accent"
-            } ${locked ? "" : "cursor-grab active:cursor-grabbing"}`}
+            } ${unsure(i) ? "opacity-60" : ""} ${locked ? "" : "cursor-grab active:cursor-grabbing"}`}
             style={{ left: `${landmarks[i].x * 100}%`, top: `${landmarks[i].y * 100}%` }}
           />
         ))}

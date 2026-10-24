@@ -52,6 +52,11 @@ export async function loadAnimations(): Promise<Animation[]> {
   return all.sort((a, b) => b.createdAt - a.createdAt);
 }
 
+export async function deleteAnimation(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete(ANIMATIONS_STORE, id);
+}
+
 export async function clearAnimations(): Promise<void> {
   const db = await getDB();
   await db.clear(ANIMATIONS_STORE);

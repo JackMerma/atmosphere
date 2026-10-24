@@ -32,7 +32,7 @@ export default function ModelUpload() {
 
   return (
     <div className="flex flex-col gap-2">
-      <label className="inline-flex cursor-pointer items-center justify-center border border-hairline px-4 py-2 font-mono text-xs uppercase tracking-widest transition-colors hover:border-accent hover:text-accent">
+      <label className="btn inline-flex items-center justify-center px-4 py-2 font-mono text-xs uppercase tracking-widest">
         {fileName ? "Replace model" : "Upload rigged model"}
         <input
           ref={inputRef}

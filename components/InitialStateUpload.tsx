@@ -9,9 +9,7 @@ import { resetToRest, snapshotPose } from "@/lib/convergence";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 
 const buttonClass =
-  "inline-flex items-center justify-center border border-hairline px-4 py-2 font-mono text-xs uppercase tracking-widest transition-colors";
-const enabledClass = "hover:border-accent hover:text-accent";
-const disabledClass = "pointer-events-none opacity-40";
+  "btn inline-flex items-center justify-center px-4 py-2 font-mono text-xs uppercase tracking-widest";
 
 const q = new THREE.Quaternion();
 const base = new THREE.Quaternion();
@@ -100,7 +98,8 @@ export default function InitialStateUpload() {
   return (
     <div className="flex flex-col gap-2">
       <label
-        className={`${buttonClass} ${uploadDisabled ? disabledClass : `cursor-pointer ${enabledClass}`}`}
+        className={buttonClass}
+        data-disabled={uploadDisabled}
       >
         {busy ? "Estimating pose…" : "Upload Initial State"}
         <input
@@ -116,7 +115,7 @@ export default function InitialStateUpload() {
         type="button"
         onClick={define}
         disabled={defineDisabled}
-        className={`${buttonClass} ${defineDisabled ? disabledClass : enabledClass}`}
+        className={buttonClass}
       >
         Define Initial State
       </button>

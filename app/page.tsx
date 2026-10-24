@@ -53,7 +53,7 @@ export default function Home() {
             type="button"
             disabled={!hasJoints}
             onClick={() => setMotionOpen(true)}
-            className="border border-hairline px-4 py-2 font-mono text-xs uppercase tracking-widest transition-colors hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-hairline disabled:hover:text-foreground"
+            className="btn px-4 py-2 font-mono text-xs uppercase tracking-widest"
           >
             Motion
           </button>

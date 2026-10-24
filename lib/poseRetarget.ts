@@ -14,7 +14,6 @@ const LM = {
   toe: { l: 31, r: 32 },
 } as const;
 
-const MIN_VISIBILITY = 0.4;
 const SIDES: Side[] = ["l", "r"];
 
 const camRight = new THREE.Vector3();
@@ -57,7 +56,8 @@ function aim(limb: Limb | undefined, direction: THREE.Vector3) {
 /**
  * Poses the model's limbs to match the estimated landmarks. Orients the hips
  * (whole body lean / facing) first, then aims each bone parent-before-child.
- * Segments whose landmarks aren't visible are left as they are.
+ * Every landmark is used, occluded or not: the preview lets the user correct
+ * the ones MediaPipe was unsure about.
  */
 export function applyPoseToRig(
   bones: THREE.Bone[],
@@ -69,11 +69,9 @@ export function applyPoseToRig(
   camera.updateMatrixWorld(true);
   camera.matrixWorld.extractBasis(camRight, camUp, camBack);
   const at = (i: number) => toWorld(landmarks[i]);
-  const seen = (...i: number[]) => i.every((n) => landmarks[n]?.visibility >= MIN_VISIBILITY);
 
   // Whole-body orientation: hip line (right hip -> left hip) and hips -> shoulders.
-  const hipsOk = seen(LM.hip.l, LM.hip.r, LM.shoulder.l, LM.shoulder.r);
-  if (hipsOk) {
+  {
     const mid = (a: THREE.Vector3, b: THREE.Vector3) => a.clone().add(b).multiplyScalar(0.5);
     const target = frame(
       at(LM.hip.l).sub(at(LM.hip.r)),
@@ -92,12 +90,12 @@ export function applyPoseToRig(
 
   const dir = (from: number, to: number) => at(to).sub(at(from));
   for (const s of SIDES) {
-    if (seen(LM.hip[s], LM.knee[s])) aim(rig.thigh[s], dir(LM.hip[s], LM.knee[s]));
-    if (seen(LM.knee[s], LM.ankle[s])) aim(rig.calf[s], dir(LM.knee[s], LM.ankle[s]));
-    if (seen(LM.ankle[s], LM.toe[s])) aim(rig.foot[s], dir(LM.ankle[s], LM.toe[s]));
+    aim(rig.thigh[s], dir(LM.hip[s], LM.knee[s]));
+    aim(rig.calf[s], dir(LM.knee[s], LM.ankle[s]));
+    aim(rig.foot[s], dir(LM.ankle[s], LM.toe[s]));
   }
   for (const s of SIDES) {
-    if (seen(LM.shoulder[s], LM.elbow[s])) aim(rig.upperArm[s], dir(LM.shoulder[s], LM.elbow[s]));
-    if (seen(LM.elbow[s], LM.wrist[s])) aim(rig.foreArm[s], dir(LM.elbow[s], LM.wrist[s]));
+    aim(rig.upperArm[s], dir(LM.shoulder[s], LM.elbow[s]));
+    aim(rig.foreArm[s], dir(LM.elbow[s], LM.wrist[s]));
   }
 }

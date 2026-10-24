@@ -21,3 +21,40 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* Hard-shadow button: lifts on hover, presses flat on click. Works on <button> and <label>. */
+.btn {
+  border: 1px solid var(--foreground);
+  background: var(--background);
+  box-shadow: 3px 3px 0 var(--foreground);
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+.btn:hover:not(:disabled):not([data-disabled="true"]) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--background);
+  box-shadow: 4px 4px 0 var(--foreground);
+  transform: translate(-1px, -1px);
+}
+.btn:active:not(:disabled):not([data-disabled="true"]) {
+  box-shadow: 0 0 0 var(--foreground);
+  transform: translate(3px, 3px);
+}
+.btn:disabled,
+.btn[data-disabled="true"] {
+  border-color: var(--hairline);
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.btn[data-active="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 3px 3px 0 var(--accent);
+}

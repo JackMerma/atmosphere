@@ -126,7 +126,7 @@ export default function MotionModal({ onClose }: { onClose: () => void }) {
           <button
             type="submit"
             disabled={busy || !prompt.trim()}
-            className="border border-hairline px-4 py-2 font-mono text-xs uppercase tracking-widest transition-colors hover:border-accent hover:text-accent disabled:opacity-40"
+            className="btn px-4 py-2 font-mono text-xs uppercase tracking-widest"
           >
             {busy ? "Working…" : "Generate"}
           </button>
@@ -134,7 +134,7 @@ export default function MotionModal({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="border border-hairline px-4 py-2 font-mono text-xs uppercase tracking-widest transition-colors hover:border-accent hover:text-accent disabled:opacity-40"
+            className="btn px-4 py-2 font-mono text-xs uppercase tracking-widest"
           >
             Close
           </button>
