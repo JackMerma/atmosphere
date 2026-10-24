@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { parseGltfBuffer } from "@/lib/gltfJoints";
+import { parseModelPair } from "@/lib/gltfJoints";
 import { saveModel, clearAnimations } from "@/lib/db";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 
@@ -17,8 +17,8 @@ export default function ModelUpload() {
     setLoading();
     try {
       const buffer = await file.arrayBuffer();
-      const parsed = await parseGltfBuffer(buffer);
-      setModel(parsed.scene, parsed.joints, file.name);
+      const parsed = await parseModelPair(buffer);
+      setModel(parsed.scene, parsed.finalScene, parsed.joints, file.name);
       await saveModel(file, file.name);
       // Saved animations are rotations for the previous model's bones.
       setAnimations([]);

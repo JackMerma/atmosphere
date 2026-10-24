@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Grid, Bounds } from "@react-three/drei";
+import { OrbitControls, Grid } from "@react-three/drei";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import JointHandles from "@/components/JointHandles";
 import ViewportBridge from "@/components/ViewportBridge";
@@ -10,12 +10,13 @@ import CentroidLock from "@/components/CentroidLock";
 
 export default function RigViewport() {
   const scene = useAtmosphereStore((s) => s.scene);
+  const finalScene = useAtmosphereStore((s) => s.finalScene);
   const isDraggingJoint = useAtmosphereStore((s) => s.isDraggingJoint);
 
   return (
     <div className="fixed inset-0">
       <Canvas
-        camera={{ position: [2, 1.6, 3], fov: 45 }}
+        camera={{ position: [0, 1.6, 7.6], fov: 45 }}
         gl={{ preserveDrawingBuffer: true }}
       >
         <ViewportBridge />
@@ -38,12 +39,14 @@ export default function RigViewport() {
           infiniteGrid
           raycast={() => null}
         />
-        {scene && (
-          <Bounds fit clip margin={1.4}>
+        {scene && finalScene && (
+          <>
             <primitive object={scene} />
-          </Bounds>
+            <primitive object={finalScene} />
+          </>
         )}
-        <JointHandles />
+        {scene && <JointHandles scene={scene} />}
+        {finalScene && <JointHandles scene={finalScene} />}
         {/* Camera orbit stays free; only an active joint drag suspends it,
             so the two gestures (pose a joint vs. look around) never fight. */}
         <OrbitControls makeDefault enabled={!isDraggingJoint} target={[0, 1, 0]} />

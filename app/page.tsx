@@ -1,21 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import ModelUpload from "@/components/ModelUpload";
-import InitialStateUpload from "@/components/InitialStateUpload";
-import MotionModal from "@/components/MotionModal";
+import MotionSection from "@/components/MotionSection";
+import StateColumn from "@/components/StateColumn";
 import RigViewport from "@/components/RigViewport";
 import CornerBrackets from "@/components/CornerBrackets";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
-import { parseGltfBuffer } from "@/lib/gltfJoints";
+import { parseModelPair } from "@/lib/gltfJoints";
 import { loadModel, loadAnimations } from "@/lib/db";
 import AnimationsHistoryPanel from "@/components/AnimationsHistoryPanel";
 import PlayButton from "@/components/PlayButton";
-import PoseReference from "@/components/PoseReference";
 
 export default function Home() {
-  const hasJoints = useAtmosphereStore((s) => s.joints.length > 0);
-  const [motionOpen, setMotionOpen] = useState(false);
   const setLoading = useAtmosphereStore((s) => s.setLoading);
   const setModel = useAtmosphereStore((s) => s.setModel);
   const setError = useAtmosphereStore((s) => s.setError);
@@ -29,8 +26,8 @@ export default function Home() {
       setLoading();
       try {
         const buffer = await stored.fileBlob.arrayBuffer();
-        const parsed = await parseGltfBuffer(buffer);
-        setModel(parsed.scene, parsed.joints, stored.fileName);
+        const parsed = await parseModelPair(buffer);
+        setModel(parsed.scene, parsed.finalScene, parsed.joints, stored.fileName);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Could not restore the saved model."
@@ -48,21 +45,13 @@ export default function Home() {
         <CornerBrackets />
         <div className="flex flex-col gap-3">
           <ModelUpload />
-          <InitialStateUpload />
-          <button
-            type="button"
-            disabled={!hasJoints}
-            onClick={() => setMotionOpen(true)}
-            className="btn px-4 py-2 font-mono text-xs uppercase tracking-widest"
-          >
-            Motion
-          </button>
+          <MotionSection />
           <AnimationsHistoryPanel />
           <PlayButton />
         </div>
       </div>
-      <PoseReference />
-      {motionOpen && <MotionModal onClose={() => setMotionOpen(false)} />}
+      <StateColumn side="initial" />
+      <StateColumn side="final" />
     </div>
   );
 }

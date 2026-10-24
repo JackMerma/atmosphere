@@ -1,6 +1,20 @@
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { saveAnimation } from "@/lib/db";
-import type { Keyframe } from "@/lib/convergence";
+import type { Ease } from "@/lib/easing";
+import type { PoseQuats } from "@/lib/pose";
+
+export interface Keyframe {
+  /** What this pose is; for the first and last keyframe, the state they came from. */
+  pose: string;
+  /** Jev's match score for this pose (0..1), when it was judged. */
+  match: number | null;
+  converged: boolean;
+  quats: PoseQuats;
+  /** Seconds from the start. Absent on animations saved by the older pipeline. */
+  time?: number;
+  /** Easing on the way INTO this keyframe. */
+  ease?: Ease;
+}
 
 export interface Animation {
   id: string;
@@ -9,12 +23,14 @@ export interface Animation {
   label: string;
   createdAt: number;
   keyframes: Keyframe[];
-  /** Bone rotations the animation began from (the initial state); absent = rest pose. */
-  start?: number[][];
+  /** Older pipeline only: the pose the animation began from, absent = rest. */
+  start?: PoseQuats;
+  /** Seconds from the first to the last keyframe; present on timeline animations. */
+  duration?: number;
 }
 
 /** Records a finished generation as a new history entry and makes it the active one. */
-export async function createAnimation(keyframes: Keyframe[], start?: number[][]) {
+export async function createAnimation(keyframes: Keyframe[], duration: number) {
   const { animations, addAnimation } = useAtmosphereStore.getState();
   const index = animations.reduce((max, a) => Math.max(max, a.index), 0) + 1;
   const animation: Animation = {
@@ -23,7 +39,7 @@ export async function createAnimation(keyframes: Keyframe[], start?: number[][])
     label: `Animation ${index}`,
     createdAt: Date.now(),
     keyframes,
-    ...(start && { start }),
+    duration,
   };
   addAnimation(animation);
   await saveAnimation(animation);

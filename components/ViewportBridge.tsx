@@ -3,12 +3,10 @@
 import { useEffect } from "react";
 import * as THREE from "three";
 import { useThree } from "@react-three/fiber";
-import { useAtmosphereStore } from "@/store/useAtmosphereStore";
+import { useAtmosphereStore, type Side } from "@/store/useAtmosphereStore";
 
 const CAPTURE_SIZE = 512;
 const FIT_PADDING = 1.1;
-
-const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
 /** World-space positions of every (skinned) vertex of the model, as x,y,z triples. */
 function modelVertices(model: THREE.Object3D) {
@@ -53,9 +51,8 @@ function fittingCamera(camera: THREE.PerspectiveCamera, model: THREE.Object3D) {
   }
   const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
 
-  // The square crop is limited by the narrower field of view.
-  const halfV = THREE.MathUtils.degToRad(camera.fov) / 2;
-  const tan = Math.min(Math.tan(halfV), Math.tan(halfV) * camera.aspect);
+  // Rendered square, so the vertical field of view is the limit on both axes.
+  const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
 
   // Every vertex must satisfy |offset| <= tan * (distance - z) in camera space.
   let distance = 0;
@@ -71,6 +68,7 @@ function fittingCamera(camera: THREE.PerspectiveCamera, model: THREE.Object3D) {
     .addScaledVector(right, cx)
     .addScaledVector(up, cy)
     .addScaledVector(back, distance);
+  fit.aspect = 1;
   fit.near = 0.01;
   fit.far = distance - minZ + (maxZ - minZ) + 1;
   fit.updateProjectionMatrix();
@@ -78,50 +76,65 @@ function fittingCamera(camera: THREE.PerspectiveCamera, model: THREE.Object3D) {
   return fit;
 }
 
+/** Name given to the joint-handle groups, so a capture can hide them without waiting for React. */
+export const HANDLES_NAME = "joint-handles";
+
 export default function ViewportBridge() {
   const { camera, gl, scene: threeScene } = useThree();
   const setViewport = useAtmosphereStore((s) => s.setViewport);
 
   useEffect(() => {
-    async function capture() {
+    // Captures render offscreen, so the picture on screen never flickers and no
+    // frames need to pass between one candidate and the next.
+    const target = new THREE.WebGLRenderTarget(CAPTURE_SIZE, CAPTURE_SIZE, {
+      colorSpace: THREE.SRGBColorSpace,
+      samples: 4,
+    });
+    const pixels = new Uint8Array(CAPTURE_SIZE * CAPTURE_SIZE * 4);
+    const canvas = document.createElement("canvas");
+    canvas.width = CAPTURE_SIZE;
+    canvas.height = CAPTURE_SIZE;
+
+    async function capture(side: Side = "initial") {
       const store = useAtmosphereStore.getState();
-      const scene = store.scene;
+      const scene = side === "initial" ? store.scene : store.finalScene;
+      const other = side === "initial" ? store.finalScene : store.scene;
       if (!scene) throw new Error("No model loaded.");
+      if (!(camera instanceof THREE.PerspectiveCamera)) throw new Error("Unsupported camera.");
 
-      store.setCapturing(true);
-      await nextFrame();
-      await nextFrame();
+      // Only the model being judged goes in the picture: no other model, no handles.
+      const hidden: THREE.Object3D[] = [];
+      if (other?.visible) hidden.push(other);
+      threeScene.traverse((o) => {
+        if (o.name === HANDLES_NAME && o.visible) hidden.push(o);
+      });
+      hidden.forEach((o) => (o.visible = false));
 
+      const previousTarget = gl.getRenderTarget();
       try {
-        if (!(camera instanceof THREE.PerspectiveCamera)) throw new Error("Unsupported camera.");
-        const source = gl.domElement;
-        // Render the model fully framed, then crop the centred square it fits in.
+        gl.setRenderTarget(target);
         gl.render(threeScene, fittingCamera(camera, scene));
-        const side = Math.min(source.width, source.height);
-        const out = document.createElement("canvas");
-        out.width = CAPTURE_SIZE;
-        out.height = CAPTURE_SIZE;
-        out
-          .getContext("2d")!
-          .drawImage(
-            source,
-            (source.width - side) / 2,
-            (source.height - side) / 2,
-            side,
-            side,
-            0,
-            0,
-            CAPTURE_SIZE,
-            CAPTURE_SIZE
-          );
-        return out.toDataURL("image/jpeg", 0.85);
+        gl.readRenderTargetPixels(target, 0, 0, CAPTURE_SIZE, CAPTURE_SIZE, pixels);
       } finally {
-        useAtmosphereStore.getState().setCapturing(false);
+        gl.setRenderTarget(previousTarget);
+        hidden.forEach((o) => (o.visible = true));
       }
+
+      // Pixels come back bottom-up; flip them into an upright image.
+      const image = new ImageData(CAPTURE_SIZE, CAPTURE_SIZE);
+      const row = CAPTURE_SIZE * 4;
+      for (let y = 0; y < CAPTURE_SIZE; y++) {
+        image.data.set(pixels.subarray((CAPTURE_SIZE - 1 - y) * row, (CAPTURE_SIZE - y) * row), y * row);
+      }
+      canvas.getContext("2d")!.putImageData(image, 0, 0);
+      return canvas.toDataURL("image/jpeg", 0.85);
     }
 
     setViewport({ camera, capture });
-    return () => setViewport(null);
+    return () => {
+      setViewport(null);
+      target.dispose();
+    };
   }, [camera, gl, threeScene, setViewport]);
 
   return null;

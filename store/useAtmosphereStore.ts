@@ -4,14 +4,20 @@ import { JointInfo } from "@/lib/gltfJoints";
 import type { Animation } from "@/lib/animations";
 import type { PoseLandmark } from "@/lib/poseEstimation";
 
+/** The two models on stage: where an animation starts and where it ends. */
+export type Side = "initial" | "final";
+
 /** Imperative handle onto the 3D canvas, registered by ViewportBridge. */
 export interface ViewportApi {
   camera: THREE.Camera;
-  /** Renders the model (joint dots hidden), cropped around it, as a JPEG data URL. */
-  capture: () => Promise<string>;
+  /**
+   * Renders one model alone (joint dots hidden, the other model hidden), framed
+   * whole and centred, as a JPEG data URL. Defaults to the animated stage model.
+   */
+  capture: (side?: Side) => Promise<string>;
 }
 
-/** The photo the initial state was estimated from, with its detected landmarks. */
+/** The photo a pose was estimated from, with its detected landmarks. */
 export interface PoseReference {
   /** Object URL of the uploaded image; revoked when replaced or cleared. */
   url: string;
@@ -23,13 +29,20 @@ export interface PoseReference {
   size: { width: number; height: number };
 }
 
+/** A saved pose for one side, plus the photo it was estimated from, if any. */
+export interface StateSlot {
+  /** Bone rotations (`snapshotPose` order); null = the model's rest pose. */
+  quats: number[][] | null;
+  name: string | null;
+  reference: PoseReference | null;
+}
+
+const emptySlot = (): StateSlot => ({ quats: null, name: null, reference: null });
+
 interface AtmosphereState {
-  poseReference: PoseReference | null;
-  setPoseReference: (reference: PoseReference | null) => void;
-  /** Bone rotations (convergence.ts `snapshot` order) Motion starts from; null = rest pose. */
-  initialState: number[][] | null;
-  initialStateName: string | null;
-  setInitialState: (quats: number[][] | null, name?: string | null) => void;
+  slots: Record<Side, StateSlot>;
+  /** Merges into one side's slot, revoking the previous reference photo's URL if it changed. */
+  setSlot: (side: Side, patch: Partial<StateSlot>) => void;
   animations: Animation[];
   activeAnimationId: string | null;
   playing: boolean;
@@ -44,29 +57,39 @@ interface AtmosphereState {
   capturing: boolean;
   setViewport: (viewport: ViewportApi | null) => void;
   setCapturing: (capturing: boolean) => void;
+  /** The initial-state model, left on stage; also the one animations are built and played on. */
   scene: THREE.Group | null;
+  /** The final-state model, right on stage. */
+  finalScene: THREE.Group | null;
   joints: JointInfo[];
   fileName: string | null;
   isLoading: boolean;
   error: string | null;
   isDraggingJoint: boolean;
   setLoading: () => void;
-  setModel: (scene: THREE.Group, joints: JointInfo[], fileName: string) => void;
+  setModel: (
+    scene: THREE.Group,
+    finalScene: THREE.Group,
+    joints: JointInfo[],
+    fileName: string
+  ) => void;
   setError: (message: string) => void;
   setDraggingJoint: (dragging: boolean) => void;
 }
 
 export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
-  poseReference: null,
-  setPoseReference: (reference) => {
-    const previous = get().poseReference;
-    if (previous && previous.url !== reference?.url) URL.revokeObjectURL(previous.url);
-    set({ poseReference: reference });
+  slots: { initial: emptySlot(), final: emptySlot() },
+  setSlot: (side, patch) => {
+    const previous = get().slots[side];
+    if (
+      patch.reference !== undefined &&
+      previous.reference &&
+      previous.reference.url !== patch.reference?.url
+    ) {
+      URL.revokeObjectURL(previous.reference.url);
+    }
+    set((state) => ({ slots: { ...state.slots, [side]: { ...state.slots[side], ...patch } } }));
   },
-  initialState: null,
-  initialStateName: null,
-  setInitialState: (quats, name = null) =>
-    set({ initialState: quats, initialStateName: quats ? name : null }),
   animations: [],
   activeAnimationId: null,
   playing: false,
@@ -97,23 +120,26 @@ export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
   setViewport: (viewport) => set({ viewport }),
   setCapturing: (capturing) => set({ capturing }),
   scene: null,
+  finalScene: null,
   joints: [],
   fileName: null,
   isLoading: false,
   error: null,
   isDraggingJoint: false,
   setLoading: () => set({ isLoading: true, error: null }),
-  setModel: (scene, joints, fileName) => {
-    // The previous model's reference photo no longer applies.
-    get().setPoseReference(null);
+  setModel: (scene, finalScene, joints, fileName) => {
+    // The previous model's reference photos and saved poses no longer apply.
+    for (const side of ["initial", "final"] as Side[]) {
+      get().setSlot(side, { reference: null });
+    }
     set({
       scene,
+      finalScene,
       joints,
       fileName,
       isLoading: false,
       error: null,
-      initialState: null,
-      initialStateName: null,
+      slots: { initial: emptySlot(), final: emptySlot() },
     });
   },
   setError: (message) =>
@@ -121,6 +147,7 @@ export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
       error: message,
       isLoading: false,
       scene: null,
+      finalScene: null,
       joints: [],
       fileName: null,
     }),

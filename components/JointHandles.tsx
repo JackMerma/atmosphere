@@ -5,7 +5,8 @@ import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
-import { applyWorldRotation } from "@/lib/boneMath";
+import { applyWorldRotation, collectBones } from "@/lib/boneMath";
+import { HANDLES_NAME } from "@/components/ViewportBridge";
 
 const DOT_RADIUS = 0.03;
 const DOT_COLOR = "#fa3600";
@@ -31,27 +32,17 @@ const currentDir = new THREE.Vector3();
 const handleWorld = new THREE.Vector3();
 const deltaQuat = new THREE.Quaternion();
 
-export default function JointHandles() {
-  const scene = useAtmosphereStore((s) => s.scene);
-  const joints = useAtmosphereStore((s) => s.joints);
+/** Orange drag handles for one model's joints; hidden while an animation is built or played. */
+export default function JointHandles({ scene }: { scene: THREE.Object3D }) {
   const setDraggingJoint = useAtmosphereStore((s) => s.setDraggingJoint);
   const capturing = useAtmosphereStore((s) => s.capturing);
-  const generating = useAtmosphereStore((s) => s.generating);
+  const busy = useAtmosphereStore((s) => s.generating || s.playing);
   const { camera, gl } = useThree();
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const dragRef = useRef<DragSession | null>(null);
 
-  const bones = useMemo(() => {
-    if (!scene) return [];
-    const byId = new Map<string, THREE.Bone>();
-    scene.traverse((object) => {
-      if (object instanceof THREE.Bone) byId.set(object.uuid, object);
-    });
-    return joints
-      .map((joint) => byId.get(joint.id))
-      .filter((bone): bone is THREE.Bone => !!bone);
-  }, [scene, joints]);
+  const bones = useMemo(() => collectBones(scene), [scene]);
 
   function beginDrag(handle: THREE.Bone) {
     const bone = handle.parent;
@@ -114,7 +105,7 @@ export default function JointHandles() {
   }, [activeId, camera, gl, setDraggingJoint]);
 
   return (
-    <group visible={!capturing && !generating}>
+    <group name={HANDLES_NAME} visible={!capturing && !busy}>
       {bones.map((bone) => (
         <JointDot
           key={bone.uuid}

@@ -63,3 +63,29 @@ export function parseGltfBuffer(buffer: ArrayBuffer): Promise<ParsedModel> {
     );
   });
 }
+
+/** Distance of each model from the centre of the stage, along x. */
+export const STAGE_OFFSET = 1.8;
+
+export interface ParsedPair {
+  /** Initial-state model, on the left. */
+  scene: THREE.Group;
+  /** Final-state model, on the right. */
+  finalScene: THREE.Group;
+  joints: JointInfo[];
+}
+
+/**
+ * Parses the file twice into two independent skeletons, placed side by side.
+ * Two parses (rather than cloning) keep every bone's rest pose and measured
+ * joint limits correct on both.
+ */
+export async function parseModelPair(buffer: ArrayBuffer): Promise<ParsedPair> {
+  const [initial, final] = await Promise.all([
+    parseGltfBuffer(buffer.slice(0)),
+    parseGltfBuffer(buffer.slice(0)),
+  ]);
+  initial.scene.position.x = -STAGE_OFFSET;
+  final.scene.position.x = STAGE_OFFSET;
+  return { scene: initial.scene, finalScene: final.scene, joints: initial.joints };
+}
