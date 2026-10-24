@@ -54,15 +54,29 @@ function metresPerPixel(ref: PoseReference) {
   return pixels > 0 ? world / pixels : 0;
 }
 
-/** Reads a blob URL back as a data URL, to send the photo to Jev. */
-async function toDataUrl(url: string) {
-  const blob = await (await fetch(url)).blob();
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(blob);
-  });
+/** Longest side, in pixels, of a reference photo sent to Jev; it rejects images outside its size range. */
+const JEV_PHOTO_SIDE = 768;
+
+/**
+ * Re-encodes the uploaded photo as a JPEG no larger than JEV_PHOTO_SIDE, on a
+ * white background (so transparent PNGs stay legible). Whatever the original
+ * size or format, Jev always gets a plain, reasonably sized JPEG.
+ */
+async function photoForJev(url: string) {
+  const bitmap = await createImageBitmap(await (await fetch(url)).blob());
+  try {
+    const scale = Math.min(1, JEV_PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.88);
+  } finally {
+    bitmap.close();
+  }
 }
 
 /**
@@ -138,7 +152,7 @@ export default function StateColumn({ side }: { side: Side }) {
     setBusy(true);
     setError(null);
     try {
-      const photo = await toDataUrl(reference.url);
+      const photo = await photoForJev(reference.url);
       const result = await refinePose({
         side,
         target: { reference: photo },
