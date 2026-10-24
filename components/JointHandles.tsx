@@ -5,8 +5,11 @@ import * as THREE from "three";
 import { useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
-import { applyWorldRotation, collectBones } from "@/lib/boneMath";
+import { collectBones } from "@/lib/boneMath";
 import { HANDLES_NAME } from "@/components/ViewportBridge";
+import { reachToward } from "@/lib/ikChain";
+import { anchorFor } from "@/lib/anchor";
+import { settlePose } from "@/lib/settle";
 
 const DOT_RADIUS = 0.03;
 const DOT_COLOR = "#fa3600";
@@ -15,10 +18,8 @@ const ACTIVE_COLOR = "#0090ff";
 interface DragSession {
   /** The joint whose dot is being dragged — it follows the cursor. */
   handle: THREE.Bone;
-  /** The bone actually rotated: the handle's parent, which swings the handle. */
-  bone: THREE.Bone;
-  /** World position the rotation happens around (the parent joint). */
-  pivot: THREE.Vector3;
+  /** Every bone of this model, settled together after each move. */
+  bones: THREE.Bone[];
   /** Camera-facing plane the cursor is projected onto for the whole gesture. */
   plane: THREE.Plane;
 }
@@ -27,10 +28,7 @@ interface DragSession {
 const ndc = new THREE.Vector2();
 const raycaster = new THREE.Raycaster();
 const target = new THREE.Vector3();
-const desiredDir = new THREE.Vector3();
-const currentDir = new THREE.Vector3();
 const handleWorld = new THREE.Vector3();
-const deltaQuat = new THREE.Quaternion();
 
 /** Orange drag handles for one model's joints; hidden while an animation is built or played. */
 export default function JointHandles({ scene }: { scene: THREE.Object3D }) {
@@ -45,17 +43,13 @@ export default function JointHandles({ scene }: { scene: THREE.Object3D }) {
   const bones = useMemo(() => collectBones(scene), [scene]);
 
   function beginDrag(handle: THREE.Bone) {
-    const bone = handle.parent;
-    if (!(bone instanceof THREE.Bone)) return;
+    if (!(handle.parent instanceof THREE.Bone)) return;
 
     handle.getWorldPosition(handleWorld);
-    const pivot = bone.getWorldPosition(new THREE.Vector3());
-    if (handleWorld.distanceToSquared(pivot) < 1e-8) return;
-
     const normal = camera.getWorldDirection(new THREE.Vector3());
     const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, handleWorld);
 
-    dragRef.current = { handle, bone, pivot, plane };
+    dragRef.current = { handle, bones, plane };
     setActiveId(handle.uuid);
     // Suspends OrbitControls for this gesture, so grabbing a joint never
     // also swings the camera.
@@ -75,17 +69,10 @@ export default function JointHandles({ scene }: { scene: THREE.Object3D }) {
       raycaster.setFromCamera(ndc, camera);
       if (!raycaster.ray.intersectPlane(drag.plane, target)) return;
 
-      drag.bone.getWorldPosition(drag.pivot);
-      desiredDir.subVectors(target, drag.pivot);
-      drag.handle.getWorldPosition(handleWorld);
-      currentDir.subVectors(handleWorld, drag.pivot);
-      if (desiredDir.lengthSq() < 1e-8 || currentDir.lengthSq() < 1e-8) return;
-      desiredDir.normalize();
-      currentDir.normalize();
-
-      // Swing the parent bone so the dragged joint points at the cursor.
-      deltaQuat.setFromUnitVectors(currentDir, desiredDir);
-      applyWorldRotation(drag.bone, deltaQuat);
+      // The joints above the handle share the pull, so a tug on the wrist
+      // bends the elbow, swings the shoulder and leans the chest.
+      reachToward(drag.handle, target, anchorFor(drag.bones));
+      settlePose(drag.bones, 2);
     }
 
     function endDrag() {

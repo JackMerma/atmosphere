@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { applyWorldRotation } from "@/lib/boneMath";
 import { mapHumanoid, type HumanoidRig, type Limb, type Side } from "@/lib/humanoidRig";
+import { settlePose } from "@/lib/settle";
 import type { PoseLandmark } from "@/lib/poseEstimation";
 
 /** Direction in the camera's frame: x = screen right, y = up, z = toward the viewer. */
@@ -142,6 +143,7 @@ export function applySegmentsToRig(
   const rig = mapHumanoid(bones);
   loadCamera(camera);
   poseRig(rig, segments);
+  settlePose(bones);
 }
 
 /** Reads the model's current pose as segment directions, as seen from the camera. */

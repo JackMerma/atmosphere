@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { collectBones } from "@/lib/boneMath";
-import { constrainPose } from "@/lib/jointLimits";
+import { settlePose } from "@/lib/settle";
 import { ease } from "@/lib/easing";
 import { applySlot } from "@/lib/pose";
 import type { Animation } from "@/lib/animations";
@@ -92,8 +92,9 @@ export default function PlaybackDriver() {
         bone.quaternion.slerpQuaternions(qa, qb, t);
       });
     }
-    // Easing between two legal poses can still pass outside the limits.
-    constrainPose(bones);
+    // Easing between two settled poses can still pass through the body; one
+    // pass per frame keeps playback clear without stalling the frame.
+    settlePose(bones, 1);
   });
 
   return null;

@@ -1,6 +1,12 @@
 import * as THREE from "three";
 import { constrainBone } from "@/lib/jointLimits";
 
+/**
+ * The skeleton's root, whose parent is the armature rather than another bone.
+ * Rotating it swings the entire figure, so coupling and collisions stop below it.
+ */
+export const isRootBone = (bone: THREE.Bone) => !(bone.parent instanceof THREE.Bone);
+
 /** Every bone in a model, in scene-traversal order (stable for a given file). */
 export function collectBones(scene: THREE.Object3D) {
   const bones: THREE.Bone[] = [];

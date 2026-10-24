@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { collectBones } from "@/lib/boneMath";
-import { constrainPose } from "@/lib/jointLimits";
+import { settlePose } from "@/lib/settle";
 import { useAtmosphereStore, type Side } from "@/store/useAtmosphereStore";
 
 /** Local rotation (x, y, z, w) of every bone, in `collectBones` order. */
@@ -20,11 +20,10 @@ export function snapshotPose(bones: THREE.Bone[]): PoseQuats {
   return bones.map((b) => b.quaternion.toArray());
 }
 
-/** Writes a snapshot onto the bones, clamped to their limits (older snapshots predate them). */
+/** Writes a snapshot onto the bones and settles it into a body that can exist. */
 export function restorePose(bones: THREE.Bone[], quats: PoseQuats) {
   bones.forEach((b, i) => b.quaternion.fromArray(quats[i]));
-  constrainPose(bones);
-  bones.forEach((b) => b.updateMatrixWorld(true));
+  settlePose(bones);
 }
 
 export const restQuats = (bones: THREE.Bone[]): PoseQuats =>
