@@ -67,11 +67,36 @@ For each pose in the first half:
 Every candidate goes through `settlePose`, so none of them can be an impossible
 body.
 
-### 4. Playback
+### 4. Then the whole motion is judged
+
+The poses are now as close to what was asked for as judging them one at a time
+can get them. What is left is how they are *played*, which no pose says
+anything about.
+
+So `tuneMotion` shows Jev the whole thing. Each round:
+
+1. Builds a few variants of the same animation, **one dial moved at a time** —
+   a judge can say which of two motions is better but not why, and a verdict on
+   two dials moved together says nothing about either.
+2. Renders every variant as a **sheet of six frames in time order**, numbered,
+   from a camera **held still** across all of them. A still camera is the whole
+   trick: left to re-centre on the figure, a capture subtracts exactly the rise
+   and fall that carries the weight.
+3. Asks Jev which sheet reads best as the action — with the motion we already
+   have among the options, so a round can hold but never make things worse.
+
+The poses never change here. Only how they are played.
+
+Jev refuses a sheet laid out in one row (`Invalid image dimensions` at 6:1), so
+the six frames wrap into three across and two down.
+
+### 5. Playback
 
 `PlaybackDriver` walks the timeline each frame:
 
-- Keyframes are slerped with each one's easing and hold.
+- Keyframes are slerped with each one's easing and hold, and the dials the
+  animation was tuned to are applied: `lib/timeline.ts` is the same code the
+  sheets a judge was shown went through, so what plays is what was judged.
 - **Each joint reads the timeline slightly behind the one above it**, so the
   shoulder turns, the elbow follows and the hand arrives last.
 - `settlePose` runs once per frame.
@@ -92,9 +117,13 @@ For a 4-pose walk cycle at the default settings (10 rounds, 4 candidates),
 | | Calls |
 |---|---|
 | OpenAI | 1 |
-| Jev ranking | 2 poses × 10 rounds = 20 |
+| Jev pose ranking | 2 poses × 10 rounds = 20 |
 | Jev scoring (reporting only) | 4 |
+| Jev motion ranking | 4 rounds = 4 |
 
-Each ranking call carries 10 images (5 candidates × 2 views). Rounds and
-candidates are the two sliders that move this most; **Rounds can be set to 0**
-to skip Jev entirely, which is the way to compare with and without it.
+Each pose-ranking call carries 10 images (5 candidates × 2 views) at about 2k
+input tokens. A motion round carries 8 sheets (4 variants × 2 angles) at about
+**12.5k input tokens**, which is why it defaults to 4 rounds rather than 10.
+
+**Pose rounds** and **Motion rounds** can each be set to 0 independently, which
+is how to see what either half is worth on its own.

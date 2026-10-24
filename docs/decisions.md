@@ -19,6 +19,49 @@ round monotone by construction — it can hold, but never make things worse.
 The absolute score survives in `/api/motion/judge`, used twice per pose purely
 to report progress.
 
+## Jev judges the motion, not only the pose
+
+**It started as:** Jev ranking candidate poses, one pose at a time.
+
+**Why that was the wrong axis:** the poses were never what was wrong. A walk
+reads badly because of weight, drag and timing, and a single pose says nothing
+about any of them. The judge was being spent on the one thing that was already
+right, and no amount of polishing four poses turns them into motion.
+
+**Now:** the whole animation is rendered as a sheet of frames in time order and
+ranked as motion. The variants differ only in *how the same poses are played*,
+so the question is about movement and nothing else. The ranking design is
+unchanged — one Choice per round, the incumbent among the options, monotone by
+construction — just lifted a level.
+
+The dials it searches were all constants before, and the honest reason they were
+constants is that nobody knew what to set them to. Asked about "walking" over
+six rounds it widened the arm swing, deepened the drag and pulled the timing
+early, and left amplitude and the bob alone. The arm swing is the weakness the
+planner's system prompt had failed to fix, so this reached something the
+authored-pose path could not.
+
+What it does **not** do is add frames. Four keyframes are still four keyframes,
+and the ceiling in [`status.md`](status.md) is unchanged.
+
+## A sheet of frames, not a row, and the camera must not move
+
+Two things had to be right for a judge that only sees stills to see motion.
+
+**The frame is held still.** A capture normally re-centres on the figure, which
+is right when the question is what pose it is in, and wrong when the question is
+how it moves: re-centring every frame subtracts exactly the rise and fall that
+carries the weight. `lockFrame` widens one frame to hold every pose it will be
+shown and then every shot is taken from the same place. Distance is worked out
+from the corners of that box rather than from the vertices, which frames a
+little wide — the right trade when the vertices of every pose are not all in
+hand at once, since framing wide costs pixels where framing tight clips a limb.
+
+**The frames wrap.** Six frames in a row, which is how an animator pins
+thumbnails up, is an image six times wider than it is tall, and Jev refuses it
+outright: `Invalid image dimensions`. Three across and two down is the same
+sheet, accepted, with the numbers carrying the reading order.
+
 ## Candidates are shown from two angles
 
 A walk lives on the front-to-back axis. Head-on, that axis is *depth*: a leg
@@ -128,6 +171,10 @@ are collapsed and every mesh bound to the outermost skeleton.
   improves two poses, and the weakness is the motion between them.
 - **Gravity, balance, a real solver** — out of scope; the model floats on
   purpose.
+- **Per-keyframe timing dials** — the dials are global to an animation on
+  purpose. Per keyframe there would be too many to search with a handful of
+  rounds, and they would let a cycle's halves drift out of symmetry, which is
+  the same failure mirroring exists to prevent.
 - **A motion-capture clip library (the Mixamo approach)** — would look the best
   fastest, because it *is* mocap, but it changes the project from generating
   motion to composing it. Deliberately left as the user's call; see

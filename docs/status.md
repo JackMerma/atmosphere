@@ -2,7 +2,7 @@
 
 Where the project stands, honestly. Written to pick the work back up later.
 
-Last worked on: 24 October 2026. Head of `master`: `ceaef81`.
+Last worked on: 24 October 2026. Head of `master`: the motion-judging work.
 
 ## What is verified
 
@@ -26,29 +26,46 @@ passing, plus a run in the browser against two real models.
 - **The planner** returns well-formed plans, and gets the structural flags right
   on its own: `mirrorHalf` true for walking and running, false for waving one
   hand; `grounded` false only at the peak of a jump.
+- **The motion dials**: every keyframe is still reached bit-for-bit, amplitude
+  is monotone and exact at 1, the arm dials leave the legs untouched, the drag
+  delays a joint by exactly its chain depth, and spacing changes the middle of a
+  segment but not its ends.
+- **Judging motion works end to end** against the real API: six frames of an
+  animation on one sheet, from a frame held still, ranked by Jev. On "walking"
+  over six rounds it widened the arm swing (1.00 -> 1.40), deepened the drag
+  (0.03 -> 0.08) and pulled the timing early (spacing 1.00 -> 0.70), leaving
+  amplitude and the bob where they were. Playback reads the result.
 
 ## What is weak, and known
 
 Ordered by how much it costs the result.
 
-1. **Feet slide horizontally.** They rise and fall correctly, but nothing pins
-   them front-to-back during a stance phase, so a walk still skates. **This is
-   the next piece of the physical layer and the biggest remaining gap in a
-   walk.**
-2. **The vertical bob may be too strong.** The rule is right, but the planner
-   bends the knee a lot in a passing pose, so the body can dip further than it
-   should. Not yet tuned against a human eye.
-3. **Arms barely swing in a walk.** The planner leaves them near vertical
-   (z 0.00–0.30) where the legs reach 0.55. This is the same class of failure
-   the legs had, and it was fixed there by putting concrete vectors in the
-   system prompt. The same fix has not been applied to the arms.
-4. **Jev has not been shown to improve a pose.** The ranking design is sound and
-   monotone, but no with/without comparison has been run. `Rounds = 0` skips Jev
-   entirely and exists precisely to make that comparison possible.
+1. **The figure walks in place.** The feet rise and fall correctly, but nothing
+   pins them front-to-back during a stance phase, so a walk skates and the
+   character never travels. This is the same rule as grounding, on the
+   horizontal axis — whichever foot is planted stays put in world space, which
+   pushes the body forward. **The biggest single visual win left, and it is one
+   rule.**
+2. **No contact shadow.** A blurred shadow under the planted foot sells weight
+   more cheaply than any pose fix, and there is none.
+3. **No secondary motion of its own.** Pelvis and spine counter-rotation and
+   head stabilisation are formulas, not API calls, and they are most of what
+   separates four poses interpolated from something animated. The drag between
+   joints is the only part of this that exists.
+4. **Jev has not been shown to improve a POSE.** The pose ranking is monotone by
+   construction, but no with/without comparison has been run. `Pose rounds = 0`
+   exists precisely to make that comparison possible. The motion ranking, by
+   contrast, has now been shown to move the dials in directions that match the
+   known weaknesses — but with four poses to judge, not against a human eye.
 5. **A large FBX freezes the page** for seconds while it parses. Cloning the
    second copy halved it; a worker would fix it properly.
 6. **Depth from photos is unreliable.** MediaPipe's z is noisy, which is what
    the structured "mirror the limb's depth" candidates exist to repair.
+
+Two things that were on this list are now Jev's problem rather than open
+questions: the **bob strength** and the **arm swing** are dials it searches, and
+on "walking" it widened the arms itself — the fix the planner's system prompt
+had failed to make.
 
 ## Not covered
 
@@ -61,27 +78,41 @@ Ordered by how much it costs the result.
 
 ## The road ahead
 
-The judgement reached with the user on 24 October: **this architecture — an LLM
-writing static poses, interpolated, with Jev polishing — has a ceiling, and we
-are near it.** Mixamo's animations look good because they are motion capture of
-real people: every frame carries correct timing, weight and balance, at 30–60
-fps. Four keyframes slerped together cannot reach that by polishing the poses.
+The judgement reached with the user on 24 October stands: **this architecture —
+an LLM writing static poses, interpolated, with Jev polishing — has a ceiling,
+and we are near it.** Mixamo's animations look good because they are motion
+capture of real people: every frame carries correct timing, weight and balance,
+at 30–60 fps. Four keyframes slerped together cannot reach that, and judging the
+motion instead of the poses does not change it — it tunes how the four are
+played, it does not add a fifth.
 
-The user chose to close the gap with the **physical layer** first, since it
-improves the result under any later direction. Done so far: ground contact and
-per-joint lag. Still to do:
+What the diagnosis actually said, and still says: the bottleneck is not pose
+accuracy. It is that there are four poses where there should be sixty, and that
+until recently nothing in the system knew about weight, travel or timing. What
+the eye reads as real motion, in order of impact:
 
-1. **Foot planting** — pin the support foot front-to-back during its stance.
-2. **Tune the bob** against a real eye.
-3. **Arm swing vectors** in the planner prompt.
+1. **Travel** — the figure crossing the floor instead of pedalling in place.
+2. **Contact shadow**, and the floor and light around it.
+3. **Secondary motion** — counter-rotation, head stabilisation, overlap.
+4. **Overshoot and anticipation** — passing the pose and coming back.
 
-If that still does not impress, the two routes discussed were a **mocap clip
-library** the planner composes from (looks like Mixamo because it is Mixamo, but
-changes what the project is), and a **text-to-motion model** such as MDM (needs
-a GPU backend and sidelines Jev).
+Of those, only part of 3 exists. **1 and 2 are the next work**, and both are
+cheap. They also help under any later direction, which is why they come first.
+
+The user chose on 24 October to keep the generating architecture and lift Jev
+from poses to motion rather than switch to composing mocap. That is done. The
+two routes left on the table if the result still does not impress:
+
+- a **mocap clip library** the planner composes from, with Jev selecting clips
+  by name (a text Choice, which is well posed) and verifying the composition
+  from a sheet of frames exactly as it does now. Looks like Mixamo because it is
+  Mixamo, and changes the project from generating motion to directing it.
+- a **text-to-motion model** such as MDM — needs a GPU backend and sidelines Jev.
 
 ## Hackathon state
 
 The build checklist in `devpost/checklist.md` has all six slices ticked. The
 final review, the learning wrap-up and the app map are **not** done, and `6-ship`
-— demo video, public repo, Devpost submission — has not been started.
+— demo video, public repo, Devpost submission — has not been started. As of 24
+October the user put the deadline at **2–3 days**, which is enough for the two
+cheap wins above and `6-ship`, and not enough for a mocap library.

@@ -53,7 +53,12 @@ that render nothing and only act each frame:
 - **`ViewportBridge`** — registers `capture(side, yaw)`, which renders one model
   alone, framed whole, off-screen, so judging never flickers the page. `yaw`
   swings the shot around the model without moving the user's camera.
-- **`PlaybackDriver`** — drives the stage model through the active animation.
+  `lockFrame` holds that framing still across a run of captures: left to
+  re-centre, a capture subtracts exactly the rise and fall a sheet of frames is
+  meant to show.
+- **`PlaybackDriver`** — drives the stage model through the active animation,
+  by way of `lib/timeline.ts`, which is the same code the offscreen captures a
+  judge is shown go through.
 - **`CentroidLock`** — holds each model over its spot on the stage *sideways
   only*. Height belongs to the floor.
 - **`StageChoreography`** — owns the stage groups and the magnet transition.
@@ -77,6 +82,10 @@ lib/
   ikChain.ts        spreads a drag up the chain so a body reacts as a whole
   grounding.ts      stands the figure on its lowest foot
   anchor.ts         the hips: nothing automatic may rotate them
+  timeline.ts       the pose an animation holds at a given time, dials applied
+  motionParams.ts   the dials: amplitude, drag, bob, arm phase, spacing
+  motionStrip.ts    a whole animation as one numbered sheet of frames
+  tuneMotion.ts     Jev picking between ways of playing the same poses
 ```
 
 ### Segment vectors
@@ -89,6 +98,18 @@ This representation is shared by everything: the planner writes poses in it,
 pose estimation from a photo produces it, mirroring operates on it, and
 attention measures distances in it. `measureSegments` reads a pose out of a
 skeleton and `applySegmentsToRig` writes one back, and the round trip is exact.
+
+### Poses, and how they are played
+
+A pose says where the body goes. It says nothing about how it gets there, and
+that is most of what makes motion read as motion. `MotionParams` holds the
+rest, global to one animation: how far each pose commits (`amplitude`, and
+`armAmplitude` for the arms alone), how far each joint trails the one above it
+(`lag`), how much of the floor contact is applied (`bob`), where the arms sit in
+the cycle (`armPhase`), and how the time between poses is spent (`spacing`).
+
+Every one of them used to be a constant, and the honest reason is that nobody
+knew what to set them to. They are now what Jev is asked about.
 
 ### `settlePose` is the one way in
 
@@ -105,5 +126,6 @@ Server-side only, so the keys never reach the browser.
 |---|---|---|
 | `POST /api/motion/plan` | OpenAI | author every pose of an action, with timing |
 | `POST /api/motion/rank` | Jev | pick the best of several candidate poses |
+| `POST /api/motion/rank-motion` | Jev | pick the best of several ways of PLAYING one set of poses |
 | `POST /api/motion/judge` | Jev | score one pose, 0–1, for reporting |
 | `POST /api/motion/attention` | Jev | name the body part that looks most wrong |

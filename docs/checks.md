@@ -15,14 +15,15 @@ npx tsx checks/limits.ts        # joint ranges and the strength dial
 npx tsx checks/physics.ts       # self-collision and chain coupling
 npx tsx checks/mirror.ts        # mirroring a pose left/right
 npx tsx checks/attention.ts     # which limbs the search focuses on
+npx tsx checks/timeline.ts      # the dials that decide how a motion reads
 npx tsx checks/grounding.ts     # standing on the floor, and weight   (needs a model)
 npx tsx checks/formats.ts       # loading .glb / .fbx / .zip          (needs a model)
 ```
 
 Each prints a `PASS`/`FAIL` line per assertion and exits non-zero on failure.
 
-The first four build a synthetic Mixamo-named skeleton in code and need
-nothing else. The last two need a real model: drop any rigged `.glb`, `.gltf`,
+The first five build a synthetic Mixamo-named skeleton in code (`rig.ts`) and
+need nothing else. The last two need a real model: drop any rigged `.glb`, `.gltf`,
 `.fbx` or Sketchfab `.zip` into `checks/fixtures/` and they pick it up by
 extension. Without one they skip with a message rather than fail.
 `checks/fixtures/` is not committed — the models are large and not ours to
@@ -41,8 +42,15 @@ redistribute.
   figure keeps facing the viewer.
 - **`attention.ts`** — that a one-armed action focuses on that arm alone, that
   the worst part leads, and that tiny differences are ignored as noise.
+- **`timeline.ts`** — that every keyframe is still reached bit-for-bit, that
+  amplitude is monotone and exact at 1, that the arm dials move the arms and
+  leave the legs untouched, that the drag delays a joint by exactly its chain
+  depth, and that spacing changes the middle of a segment but not its ends.
+  This is what protects the refactor that put playback and judging on one
+  timeline.
 - **`grounding.ts`** — that the feet stay on the floor while the hips drop into
-  a crouch, and that a deeper crouch drops further. This is the weight.
+  a crouch, that a deeper crouch drops further, and that the bob dial scales
+  that contact. This is the weight.
 - **`formats.ts`** — that each format loads, normalises to the same height, is
   recognised as a humanoid, and that the two stage copies share no bone and no
   material.
