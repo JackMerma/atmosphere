@@ -17,6 +17,34 @@ export interface ParsedModel {
 /** A model needs at least two bones for there to be anything meaningful to animate. */
 const MIN_JOINTS = 2;
 
+/**
+ * Gives a cloned model its own copy of every material.
+ *
+ * Cloning shares material objects with the original, so anything that changes
+ * how one copy looks -- the stage fading the final model out as the pair merges
+ * -- would silently change the other too, and both would go transparent.
+ * Materials shared *within* the clone stay shared.
+ */
+function isolateMaterials(model: THREE.Object3D) {
+  const copies = new Map<THREE.Material, THREE.Material>();
+  const copyOf = (material: THREE.Material) => {
+    let copy = copies.get(material);
+    if (!copy) {
+      copy = material.clone();
+      copies.set(material, copy);
+    }
+    return copy;
+  };
+
+  model.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh || !mesh.material) return;
+    mesh.material = Array.isArray(mesh.material)
+      ? mesh.material.map(copyOf)
+      : copyOf(mesh.material);
+  });
+}
+
 /** Records the skeleton a freshly loaded model arrived in. */
 function describe(scene: THREE.Group): ParsedModel {
   const joints: JointInfo[] = [];
@@ -72,6 +100,7 @@ export async function parseModelPair(
   // Cloned rather than parsed twice: reading a large FBX blocks the page for
   // seconds, and SkeletonUtils gives the copy its own bones and skinning.
   const finalScene = cloneSkinned(scene) as THREE.Group;
+  isolateMaterials(finalScene);
 
   const initial = describe(scene);
   describe(finalScene);
