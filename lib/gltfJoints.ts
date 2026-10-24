@@ -64,7 +64,7 @@ export function parseGltfBuffer(buffer: ArrayBuffer): Promise<ParsedModel> {
   });
 }
 
-/** Distance of each model from the centre of the stage, along x. */
+/** Distance of each model from the centre of the stage, along x; applied by its stage group. */
 export const STAGE_OFFSET = 1.8;
 
 export interface ParsedPair {
@@ -85,7 +85,5 @@ export async function parseModelPair(buffer: ArrayBuffer): Promise<ParsedPair> {
     parseGltfBuffer(buffer.slice(0)),
     parseGltfBuffer(buffer.slice(0)),
   ]);
-  initial.scene.position.x = -STAGE_OFFSET;
-  final.scene.position.x = STAGE_OFFSET;
   return { scene: initial.scene, finalScene: final.scene, joints: initial.joints };
 }

@@ -7,6 +7,7 @@ import JointHandles from "@/components/JointHandles";
 import ViewportBridge from "@/components/ViewportBridge";
 import PlaybackDriver from "@/components/PlaybackDriver";
 import CentroidLock from "@/components/CentroidLock";
+import StageChoreography from "@/components/StageChoreography";
 
 export default function RigViewport() {
   const scene = useAtmosphereStore((s) => s.scene);
@@ -15,10 +16,7 @@ export default function RigViewport() {
 
   return (
     <div className="fixed inset-0">
-      <Canvas
-        camera={{ position: [0, 1.6, 7.6], fov: 45 }}
-        gl={{ preserveDrawingBuffer: true }}
-      >
+      <Canvas camera={{ position: [0, 1.6, 7.6], fov: 45 }} gl={{ preserveDrawingBuffer: true }}>
         <ViewportBridge />
         <PlaybackDriver />
         <CentroidLock />
@@ -39,12 +37,14 @@ export default function RigViewport() {
           infiniteGrid
           raycast={() => null}
         />
-        {scene && finalScene && (
-          <>
-            <primitive object={scene} />
-            <primitive object={finalScene} />
-          </>
-        )}
+        {/* Each model lives inside a stage group: the group places it on the
+            stage and slides it, while CentroidLock pins the body within it. */}
+        <StageChoreography
+          left={scene && <primitive object={scene} />}
+          right={finalScene && <primitive object={finalScene} />}
+        />
+        {/* Handles track their bones in world space, so they stay outside the
+            stage groups and follow the models wherever those groups slide. */}
         {scene && <JointHandles scene={scene} />}
         {finalScene && <JointHandles scene={finalScene} />}
         {/* Camera orbit stays free; only an active joint drag suspends it,

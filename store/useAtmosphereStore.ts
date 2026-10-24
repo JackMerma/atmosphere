@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { JointInfo } from "@/lib/gltfJoints";
 import type { Animation } from "@/lib/animations";
 import type { PoseLandmark } from "@/lib/poseEstimation";
+import { DEFAULT_SETTINGS, type MotionSettings } from "@/lib/refine";
 
 /** The two models on stage: where an animation starts and where it ends. */
 export type Side = "initial" | "final";
@@ -40,6 +41,9 @@ export interface StateSlot {
 const emptySlot = (): StateSlot => ({ quats: null, name: null, reference: null });
 
 interface AtmosphereState {
+  /** Refinement limits, shared by the Motion section and the per-state refine buttons. */
+  settings: MotionSettings;
+  setSettings: (settings: MotionSettings) => void;
   slots: Record<Side, StateSlot>;
   /** Merges into one side's slot, revoking the previous reference photo's URL if it changed. */
   setSlot: (side: Side, patch: Partial<StateSlot>) => void;
@@ -78,6 +82,8 @@ interface AtmosphereState {
 }
 
 export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
+  settings: DEFAULT_SETTINGS,
+  setSettings: (settings) => set({ settings }),
   slots: { initial: emptySlot(), final: emptySlot() },
   setSlot: (side, patch) => {
     const previous = get().slots[side];

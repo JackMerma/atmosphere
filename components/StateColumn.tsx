@@ -6,7 +6,7 @@ import CornerBrackets from "@/components/CornerBrackets";
 import { estimatePose } from "@/lib/poseEstimation";
 import { poseModelFrom } from "@/lib/initialPose";
 import { bonesOf, resetToRest, restQuats, snapshotPose } from "@/lib/pose";
-import { refinePose, DEFAULT_SETTINGS } from "@/lib/refine";
+import { refinePose } from "@/lib/refine";
 import { useAtmosphereStore, type PoseReference, type Side } from "@/store/useAtmosphereStore";
 import { toast } from "@/store/useToasts";
 
@@ -94,6 +94,8 @@ export default function StateColumn({ side }: { side: Side }) {
   const slot = useAtmosphereStore((s) => s.slots[side]);
   const setSlot = useAtmosphereStore((s) => s.setSlot);
   const busyElsewhere = useAtmosphereStore((s) => s.generating || s.playing);
+  const playing = useAtmosphereStore((s) => s.playing);
+  const settings = useAtmosphereStore((s) => s.settings);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [moved, setMoved] = useState(false);
@@ -154,11 +156,21 @@ export default function StateColumn({ side }: { side: Side }) {
       const result = await refinePose({
         side,
         target: { reference: photo },
-        settings: DEFAULT_SETTINGS,
+        settings,
         onProgress: (p) =>
           setStatus(`Refining · round ${p.round}/${p.rounds} · match ${p.match.toFixed(2)}`),
       });
       setSlot(side, { quats: result.quats, name: `${reference.name} (refined)` });
+      const gain = result.match - result.startMatch;
+      if (gain > 0.001) {
+        toast.success(
+          `Match ${result.startMatch.toFixed(2)} -> ${result.match.toFixed(2)} in ${settings.iterations} rounds`
+        );
+      } else {
+        toast.info(
+          `No improvement found (match ${result.match.toFixed(2)}). Try more rounds or candidates.`
+        );
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Refinement failed.");
     } finally {
@@ -195,9 +207,10 @@ export default function StateColumn({ side }: { side: Side }) {
 
   return (
     <div
-      className={`fixed bottom-6 z-10 flex w-64 -translate-x-1/2 flex-col gap-2 border border-hairline bg-background p-3 ${
+      // Slides out of the way while an animation plays, and back when it stops.
+      className={`fixed bottom-6 z-10 flex w-64 -translate-x-1/2 flex-col gap-2 border border-hairline bg-background p-3 transition-[opacity,transform] duration-500 ease-out ${
         side === "initial" ? "left-[26%]" : "left-[74%]"
-      }`}
+      } ${playing ? "pointer-events-none translate-y-[130%] opacity-0" : "translate-y-0 opacity-100"}`}
     >
       <CornerBrackets />
       <p className="font-headline text-sm uppercase tracking-[-0.02em]">{TITLE[side]}</p>

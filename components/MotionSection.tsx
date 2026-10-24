@@ -3,13 +3,7 @@
 import { useEffect, useState } from "react";
 import { generateAnimation, type Progress } from "@/lib/animator";
 import { createAnimation } from "@/lib/animations";
-import {
-  CANDIDATES_RANGE,
-  DEFAULT_SETTINGS,
-  ITERATIONS_RANGE,
-  STEP_RANGE,
-  type MotionSettings,
-} from "@/lib/refine";
+import { CANDIDATES_RANGE, ITERATIONS_RANGE, STEP_RANGE } from "@/lib/refine";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { toast } from "@/store/useToasts";
 
@@ -64,9 +58,10 @@ function Slider({ label, suffix = "", value, range, step = 1, disabled, onChange
 export default function MotionSection() {
   const hasJoints = useAtmosphereStore((s) => s.joints.length > 0);
   const setGenerating = useAtmosphereStore((s) => s.setGenerating);
+  const settings = useAtmosphereStore((s) => s.settings);
+  const setSettings = useAtmosphereStore((s) => s.setSettings);
   const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
-  const [settings, setSettings] = useState<MotionSettings>(DEFAULT_SETTINGS);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
