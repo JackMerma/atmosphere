@@ -103,6 +103,11 @@ the six frames wrap into three across and two down.
 - When the pose is grounded, the figure is **stood on its lowest foot**, which
   is where the weight comes from: the legs bend, the body drops, and the hips
   rise again as they extend.
+- The foot carrying the weight **does not move across the ground**. Whatever
+  movement the pose gives it is slid into the floor instead, which is both why a
+  walk no longer skates and why the figure travels. Measured once per animation
+  into a curve, because travel is a sum of ordered steps while the timeline is
+  sampled out of order.
 - A cycle runs its last pose straight back into its first; a one-off rests on
   the final pose and eases back.
 

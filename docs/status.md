@@ -35,23 +35,28 @@ passing, plus a run in the browser against two real models.
   over six rounds it widened the arm swing (1.00 -> 1.40), deepened the drag
   (0.03 -> 0.08) and pulled the timing early (spacing 1.00 -> 0.70), leaving
   amplitude and the bob where they were. Playback reads the result.
+- **Foot planting**: the planted foot does not slide across the ground, measured
+  in the ground's own frame over three stances with a worst slip of 0.016
+  against a body height of 2.6. A walk strides 0.91 along one axis; standing
+  still and an airborne motion travel nothing; repeats carry the travel on
+  rather than snapping back at the seam. Seen in the browser: the ground slides
+  under a figure that stays framed.
 
 ## What is weak, and known
 
 Ordered by how much it costs the result.
 
-1. **The figure walks in place.** The feet rise and fall correctly, but nothing
-   pins them front-to-back during a stance phase, so a walk skates and the
-   character never travels. This is the same rule as grounding, on the
-   horizontal axis — whichever foot is planted stays put in world space, which
-   pushes the body forward. **The biggest single visual win left, and it is one
-   rule.**
-2. **No contact shadow.** A blurred shadow under the planted foot sells weight
-   more cheaply than any pose fix, and there is none.
-3. **No secondary motion of its own.** Pelvis and spine counter-rotation and
+1. **No contact shadow.** A blurred shadow under the planted foot sells weight
+   more cheaply than any pose fix, and there is none. The figure reads as
+   hovering a little even now that it walks. **The cheapest win left.**
+2. **No secondary motion of its own.** Pelvis and spine counter-rotation and
    head stabilisation are formulas, not API calls, and they are most of what
    separates four poses interpolated from something animated. The drag between
    joints is the only part of this that exists.
+3. **The travel curve is measured, not exact.** It is sampled at 48 a second and
+   read back by interpolation, so a planted foot slips by up to about 0.6% of a
+   body height between samples. Invisible, but it is why the check's tolerance
+   is not zero.
 4. **Jev has not been shown to improve a POSE.** The pose ranking is monotone by
    construction, but no with/without comparison has been run. `Pose rounds = 0`
    exists precisely to make that comparison possible. The motion ranking, by
@@ -91,13 +96,10 @@ accuracy. It is that there are four poses where there should be sixty, and that
 until recently nothing in the system knew about weight, travel or timing. What
 the eye reads as real motion, in order of impact:
 
-1. **Travel** — the figure crossing the floor instead of pedalling in place.
-2. **Contact shadow**, and the floor and light around it.
+1. ~~**Travel**~~ — done: the planted foot slides the ground instead of skating.
+2. **Contact shadow**, and the floor and light around it. **Next.**
 3. **Secondary motion** — counter-rotation, head stabilisation, overlap.
 4. **Overshoot and anticipation** — passing the pose and coming back.
-
-Of those, only part of 3 exists. **1 and 2 are the next work**, and both are
-cheap. They also help under any later direction, which is why they come first.
 
 The user chose on 24 October to keep the generating architecture and lift Jev
 from poses to motion rather than switch to composing mocap. That is done. The
