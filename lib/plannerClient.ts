@@ -123,6 +123,7 @@ const RESPONSE_SCHEMA = {
           t: { type: "number" },
           ease: { type: "string", enum: EASES },
           hold: { type: "number" },
+          grounded: { type: "boolean" },
           text: { type: "string" },
           ...Object.fromEntries(SEGMENT_KEYS.map((k) => [k, vec3])),
         },
