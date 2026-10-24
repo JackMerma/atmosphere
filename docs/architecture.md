@@ -88,7 +88,13 @@ lib/
   motionStrip.ts    a whole animation as one numbered sheet of frames
   tuneMotion.ts     Jev picking between ways of playing the same poses
   viewAngles.ts     the camera yaws a candidate or a motion is judged from
+  poseLibrary.ts    the pose vocabulary: distance between poses, and search
 ```
+
+`scripts/harvest.ts` builds that vocabulary out of animation files (a Mixamo
+download is a sequence of poses) into `public/poseLibrary.json`. Only
+direction numbers survive the harvest -- no mesh, no texture, no bone names
+-- which is what lets a pose taken from one skeleton apply to any humanoid.
 
 ### Segment vectors
 

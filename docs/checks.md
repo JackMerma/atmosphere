@@ -16,6 +16,7 @@ npx tsx checks/physics.ts       # self-collision and chain coupling
 npx tsx checks/mirror.ts        # mirroring a pose left/right
 npx tsx checks/attention.ts     # which limbs the search focuses on
 npx tsx checks/timeline.ts      # the dials that decide how a motion reads
+npx tsx checks/library.ts       # the pose vocabulary and its search  (needs a harvest)
 npx tsx checks/grounding.ts     # standing on the floor, and weight   (needs a model)
 npx tsx checks/formats.ts       # loading .glb / .fbx / .zip          (needs a model)
 ```
@@ -51,6 +52,11 @@ redistribute.
 - **`grounding.ts`** — that the feet stay on the floor while the hips drop into
   a crouch, that a deeper crouch drops further, and that the bob dial scales
   that contact. This is the weight.
+- **`library.ts`** — that the distance between two poses is a real metric, that
+  a pose finds itself first, that different targets choose different poses, and
+  above all that a harvested pose applies to a **different** skeleton and reads
+  back as the same pose. That last one is what a library rests on. It measures
+  every pose, not a sample: sampling every tenth hid a 36° case.
 - **`formats.ts`** — that each format loads, normalises to the same height, is
   recognised as a humanoid, and that the two stage copies share no bone and no
   material.

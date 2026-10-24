@@ -1,4 +1,10 @@
 devpost/learner-profile.md
+
+# Pose vocabulary and the animation files it is harvested from. Derived from
+# Mixamo content, the same reason checks/fixtures/ is not committed: rebuild it
+# with `npx tsx scripts/harvest.ts`.
+/poses/
+/public/poseLibrary.json
 .env
 .env.*
 !.env.example
