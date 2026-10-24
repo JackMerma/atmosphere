@@ -20,14 +20,42 @@ interface Spec {
 
 const SPECS: Record<Part, Spec> = {
   // A shoulder really is near-spherical; it is its twist that deforms a mesh.
-  upperArm: { twist: 60, swing: 165 },
-  foreArm: { twist: 70, swing: 150, hinge: { max: 150, slack: 5 } },
-  // A hip swings far forward, barely backward, and hardly crosses the midline.
-  thigh: { twist: 65, swing: 160, cone: { front: 150, back: 65, out: 90, in: 45 } },
-  calf: { twist: 20, swing: 155, hinge: { max: 155, slack: 8 } },
-  foot: { twist: 35, swing: 75 },
-  neck: { twist: 60, swing: 50 },
+  upperArm: { twist: 75, swing: 170 },
+  foreArm: { twist: 85, swing: 160, hinge: { max: 160, slack: 12 } },
+  // A hip swings far forward, less far backward, and least across the midline.
+  thigh: { twist: 80, swing: 175, cone: { front: 165, back: 90, out: 110, in: 65 } },
+  calf: { twist: 35, swing: 165, hinge: { max: 165, slack: 15 } },
+  foot: { twist: 45, swing: 90 },
+  neck: { twist: 70, swing: 60 },
 };
+
+/**
+ * How hard the anatomical limits bite, from 0 (none at all: every bone turns
+ * freely) to 1 (the full ranges above). In between, every range is widened
+ * toward a half-turn and the hinge joints are only partly snapped onto their
+ * plane, so a limb still bends mostly the right way while allowing poses the
+ * strict rules would refuse.
+ *
+ * Module state rather than store state: `constrainBone` runs inside the render
+ * loop and on every bone write, and must not reach into React.
+ */
+let strength = 0.7;
+
+export const DEFAULT_LIMIT_STRENGTH = 0.7;
+
+export function setLimitStrength(value: number) {
+  strength = Math.min(1, Math.max(0, value));
+}
+
+/** Widens a limit as the strength drops; at 0 it reaches `ceiling`, which lifts it entirely. */
+const relax = (limit: number, ceiling = Math.PI) => ceiling + (limit - ceiling) * strength;
+
+/**
+ * Hyperextension gets a gentler ceiling than the other limits: it is the one
+ * that reads as a broken body, so a knee should not bend backward freely the
+ * moment the dial moves off 1.
+ */
+const relaxSlack = (limit: number) => relax(limit, Math.PI / 2);
 
 /**
  * One bone's resolved limits. All vectors live in the frame the bone's
@@ -161,6 +189,7 @@ const deltaQuat = new THREE.Quaternion();
 const twistQuat = new THREE.Quaternion();
 const twistInv = new THREE.Quaternion();
 const swingQuat = new THREE.Quaternion();
+const hingeQuat = new THREE.Quaternion();
 const vector = new THREE.Vector3();
 const tip = new THREE.Vector3();
 
@@ -190,6 +219,7 @@ function coneLimit(limit: BoneLimit, swingAxis: THREE.Vector3) {
  * are left exactly as they are.
  */
 export function constrainBone(bone: THREE.Bone) {
+  if (strength <= 0) return;
   const limit = bone.userData.jointLimit as BoneLimit | undefined;
   const rest = bone.userData.restQuaternion as number[] | undefined;
   if (!limit || !rest) return;
@@ -212,8 +242,9 @@ export function constrainBone(bone: THREE.Bone) {
 
   // `along` and `deltaQuat.w` share a scale, so this angle is correct before normalising.
   const twistAngle = 2 * Math.atan2(along, deltaQuat.w);
-  if (Math.abs(twistAngle) > limit.twist) {
-    twistQuat.setFromAxisAngle(axis, Math.sign(twistAngle) * limit.twist);
+  const maxTwist = relax(limit.twist);
+  if (Math.abs(twistAngle) > maxTwist) {
+    twistQuat.setFromAxisAngle(axis, Math.sign(twistAngle) * maxTwist);
     changed = true;
   }
 
@@ -226,22 +257,27 @@ export function constrainBone(bone: THREE.Bone) {
   if (vector.lengthSq() > 1e-12) {
     vector.normalize();
     if (limit.hinge) {
-      // Project onto the hinge axis, so an elbow or knee can only fold its one
-      // way: sideways intent is dropped rather than turned into a fold.
+      // Project onto the hinge axis, so an elbow or knee folds its one way:
+      // sideways intent is dropped rather than turned into a fold. Below full
+      // strength the result is blended back toward the requested swing.
       const signed = swingAngle * vector.dot(limit.hinge.bend);
-      const folded = Math.min(Math.max(signed, -limit.hinge.slack), limit.hinge.max);
-      swingQuat.setFromAxisAngle(limit.hinge.bend, folded);
+      const folded = Math.min(
+        Math.max(signed, -relaxSlack(limit.hinge.slack)),
+        relax(limit.hinge.max)
+      );
+      hingeQuat.setFromAxisAngle(limit.hinge.bend, folded);
+      swingQuat.slerp(hingeQuat, strength);
       changed = true;
     } else {
-      const max = Math.min(limit.swing, coneLimit(limit, vector));
+      const max = Math.min(relax(limit.swing), relax(coneLimit(limit, vector)));
       if (swingAngle > max) {
         swingQuat.setFromAxisAngle(vector, max);
         changed = true;
       }
     }
-  } else if (limit.hinge && swingAngle > limit.hinge.max) {
+  } else if (limit.hinge && swingAngle > relax(limit.hinge.max)) {
     // A half-turn swing has no usable axis; fold it to the limit instead.
-    swingQuat.setFromAxisAngle(limit.hinge.bend, limit.hinge.max);
+    swingQuat.setFromAxisAngle(limit.hinge.bend, relax(limit.hinge.max));
     changed = true;
   }
 

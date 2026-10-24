@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { applyWorldRotation } from "@/lib/boneMath";
 import { mapHumanoid } from "@/lib/humanoidRig";
+import { DEFAULT_LIMIT_STRENGTH } from "@/lib/jointLimits";
 import { bonesOf, resetToRest, restorePose, snapshotPose, type PoseQuats } from "@/lib/pose";
 import {
   applySegmentsToRig,
@@ -23,15 +24,19 @@ export interface MotionSettings {
   candidates: number;
   /** Largest rotation, in degrees, a random nudge may apply to a limb. */
   stepDegrees: number;
+  /** How hard the anatomical joint limits bite, 0 (off) to 1 (full). */
+  limitStrength: number;
 }
 
 export const ITERATIONS_RANGE = { min: 0, max: 50, default: 10 };
 export const CANDIDATES_RANGE = { min: 2, max: 8, default: 4 };
 export const STEP_RANGE = { min: 5, max: 60, default: 20 };
+export const LIMIT_RANGE = { min: 0, max: 1, default: DEFAULT_LIMIT_STRENGTH };
 export const DEFAULT_SETTINGS: MotionSettings = {
   iterations: ITERATIONS_RANGE.default,
   candidates: CANDIDATES_RANGE.default,
   stepDegrees: STEP_RANGE.default,
+  limitStrength: LIMIT_RANGE.default,
 };
 
 /** What Jev compares the figure to: a written pose or a photo (as a data URL). */

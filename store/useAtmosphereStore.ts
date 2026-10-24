@@ -52,6 +52,9 @@ interface AtmosphereState {
   playing: boolean;
   generating: boolean;
   setGenerating: (generating: boolean) => void;
+  /** True while the stage should show one merged figure: playback, or a directed generation. */
+  merged: boolean;
+  setMerged: (merged: boolean) => void;
   setAnimations: (animations: Animation[]) => void;
   addAnimation: (animation: Animation) => void;
   setActiveAnimation: (id: string) => void;
@@ -102,6 +105,8 @@ export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
   generating: false,
   setGenerating: (generating) =>
     set((s) => ({ generating, playing: generating ? false : s.playing })),
+  merged: false,
+  setMerged: (merged) => set({ merged }),
   setAnimations: (animations) =>
     set({ animations, activeAnimationId: animations[0]?.id ?? null, playing: false }),
   addAnimation: (animation) =>

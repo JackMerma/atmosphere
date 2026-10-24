@@ -94,7 +94,7 @@ export default function StateColumn({ side }: { side: Side }) {
   const slot = useAtmosphereStore((s) => s.slots[side]);
   const setSlot = useAtmosphereStore((s) => s.setSlot);
   const busyElsewhere = useAtmosphereStore((s) => s.generating || s.playing);
-  const playing = useAtmosphereStore((s) => s.playing);
+  const hidden = useAtmosphereStore((s) => s.playing || s.merged);
   const settings = useAtmosphereStore((s) => s.settings);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -210,7 +210,7 @@ export default function StateColumn({ side }: { side: Side }) {
       // Slides out of the way while an animation plays, and back when it stops.
       className={`fixed bottom-6 z-10 flex w-64 -translate-x-1/2 flex-col gap-2 border border-hairline bg-background p-3 transition-[opacity,transform] duration-500 ease-out ${
         side === "initial" ? "left-[26%]" : "left-[74%]"
-      } ${playing ? "pointer-events-none translate-y-[130%] opacity-0" : "translate-y-0 opacity-100"}`}
+      } ${hidden ? "pointer-events-none translate-y-[130%] opacity-0" : "translate-y-0 opacity-100"}`}
     >
       <CornerBrackets />
       <p className="font-headline text-sm uppercase tracking-[-0.02em]">{TITLE[side]}</p>

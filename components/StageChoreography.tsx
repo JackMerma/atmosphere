@@ -27,9 +27,10 @@ function materialsOf(root: THREE.Object3D) {
 }
 
 /**
- * Drives the two stage models like magnets: when playback starts they rush
- * together into one figure (the final-state copy fading out as it lands on the
- * initial one), and when it stops they spring back apart, overshooting
+ * Drives the two stage models like magnets: when playback starts, or a directed
+ * generation begins (which only ever works on the one stage model), they rush
+ * together into one figure -- the final-state copy fading out as it lands on
+ * the initial one -- and afterwards they spring back apart, overshooting
  * slightly before settling into exactly the poses they held before.
  *
  * It owns the stage GROUPS and only ever moves those, never the models
@@ -59,18 +60,19 @@ export default function StageChoreography({ left, right }: { left: ReactNode; ri
   }, [materials]);
 
   useFrame((_, delta) => {
-    const playing = useAtmosphereStore.getState().playing;
-    const target = playing ? 1 : 0;
+    const { playing, merged } = useAtmosphereStore.getState();
+    const together = playing || merged;
+    const target = together ? 1 : 0;
     if (merge.current === target && !leftStage.current) return;
 
-    const speed = delta / (playing ? MERGE_TIME : PART_TIME);
-    merge.current = playing
+    const speed = delta / (together ? MERGE_TIME : PART_TIME);
+    merge.current = together
       ? Math.min(1, merge.current + speed)
       : Math.max(0, merge.current - speed);
 
     // Magnets: snapping together accelerates, flying apart overshoots and settles.
-    const t = playing ? ease("in", merge.current) : ease("overshoot", merge.current);
-    const spread = STAGE_OFFSET * (1 - t) * (1 + REBOUND * (1 - t) * (playing ? 0 : 1));
+    const t = together ? ease("in", merge.current) : ease("overshoot", merge.current);
+    const spread = STAGE_OFFSET * (1 - t) * (1 + REBOUND * (1 - t) * (together ? 0 : 1));
 
     if (leftStage.current) leftStage.current.position.x = -spread;
     if (rightStage.current) {

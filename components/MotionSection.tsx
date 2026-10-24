@@ -3,9 +3,13 @@
 import { useEffect, useState } from "react";
 import { generateAnimation, type Progress } from "@/lib/animator";
 import { createAnimation } from "@/lib/animations";
-import { CANDIDATES_RANGE, ITERATIONS_RANGE, STEP_RANGE } from "@/lib/refine";
+import { CANDIDATES_RANGE, ITERATIONS_RANGE, LIMIT_RANGE, STEP_RANGE } from "@/lib/refine";
+import { setLimitStrength } from "@/lib/jointLimits";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { toast } from "@/store/useToasts";
+
+/** Long enough for the merge animation to land before the first request goes out. */
+const MERGE_SETTLE_MS = 650;
 
 /** Fraction of the whole generation done: beats finished plus the current beat's rounds. */
 function overall(progress: Progress | null) {
@@ -58,6 +62,7 @@ function Slider({ label, suffix = "", value, range, step = 1, disabled, onChange
 export default function MotionSection() {
   const hasJoints = useAtmosphereStore((s) => s.joints.length > 0);
   const setGenerating = useAtmosphereStore((s) => s.setGenerating);
+  const setMerged = useAtmosphereStore((s) => s.setMerged);
   const settings = useAtmosphereStore((s) => s.settings);
   const setSettings = useAtmosphereStore((s) => s.setSettings);
   const [open, setOpen] = useState(false);
@@ -65,6 +70,9 @@ export default function MotionSection() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+
+  // The limits live outside React, where the render loop can reach them.
+  useEffect(() => setLimitStrength(settings.limitStrength), [settings.limitStrength]);
 
   // A visible clock, so a long step reads as working rather than stuck.
   useEffect(() => {
@@ -80,6 +88,15 @@ export default function MotionSection() {
     setBusy(true);
     setGenerating(true);
     setProgress(null);
+
+    // A directed run works on the single stage model, so bring the pair together
+    // first and let the magnet animation land before the work starts.
+    const directed = prompt.trim().length > 0;
+    if (directed) {
+      setMerged(true);
+      await new Promise((r) => setTimeout(r, MERGE_SETTLE_MS));
+    }
+
     try {
       const result = await generateAnimation(prompt, settings, setProgress);
       const animation = await createAnimation(result.keyframes, result.duration);
@@ -93,6 +110,7 @@ export default function MotionSection() {
     } finally {
       setBusy(false);
       setGenerating(false);
+      setMerged(false);
       setProgress(null);
     }
   }
@@ -137,6 +155,15 @@ export default function MotionSection() {
               range={CANDIDATES_RANGE}
               disabled={busy}
               onChange={(candidates) => setSettings({ ...settings, candidates })}
+            />
+            <Slider
+              label="Joint limits"
+              suffix="%"
+              value={Math.round(settings.limitStrength * 100)}
+              range={{ min: LIMIT_RANGE.min * 100, max: LIMIT_RANGE.max * 100 }}
+              step={5}
+              disabled={busy}
+              onChange={(percent) => setSettings({ ...settings, limitStrength: percent / 100 })}
             />
             <Slider
               label="Step"
