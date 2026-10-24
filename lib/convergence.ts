@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { applyWorldRotation, collectBones } from "@/lib/boneMath";
 import type { Direction, StepResult } from "@/lib/jevClient";
+import type { PlannedPose } from "@/lib/geminiClient";
+import { applySegmentsToRig, measureSegments, type PoseSegments } from "@/lib/poseRetarget";
 
 export const MATCH_THRESHOLD = 0.7;
 const MIN_STEP_DEGREES = 4;
@@ -10,12 +12,12 @@ const MIN_STEP_DEGREES = 4;
 export interface MotionSettings {
   /** Max Jev round-trips per pose. */
   iterations: number;
-  /** First rotation tried on a joint; reversals halve it, repeats grow it up to 2x. */
+  /** First refinement rotation tried on a joint (after the pose is applied); reversals halve it, repeats grow it up to 2x. */
   stepDegrees: number;
 }
 
 export const ITERATIONS_RANGE = { min: 5, max: 20, default: 10 };
-export const STEP_RANGE = { min: 10, max: 90, default: 45 };
+export const STEP_RANGE = { min: 5, max: 90, default: 20 };
 export const DEFAULT_SETTINGS: MotionSettings = {
   iterations: ITERATIONS_RANGE.default,
   stepDegrees: STEP_RANGE.default,
@@ -117,6 +119,29 @@ export function snapshotPose(bones: THREE.Bone[]) {
   return snapshot(bones);
 }
 
+/** Puts the model in the pose Motion starts from: the saved initial state, else the rest pose. */
+function restoreStartPose(bones: THREE.Bone[]) {
+  const { initialState } = useAtmosphereStore.getState();
+  if (initialState && initialState.length === bones.length) restore(bones, initialState);
+  else resetToRest(bones);
+}
+
+/**
+ * Restores the start pose and reads it as segment directions for Gemini to
+ * build on. Null when the skeleton isn't recognisable as a humanoid.
+ */
+export function startingSegments(): PoseSegments | null {
+  const { scene, viewport } = useAtmosphereStore.getState();
+  if (!scene || !viewport) return null;
+  const bones = collectBones(scene);
+  restoreStartPose(bones);
+  try {
+    return measureSegments(bones, viewport.camera);
+  } catch {
+    return null;
+  }
+}
+
 export function resetToRest(bones: THREE.Bone[]) {
   restore(
     bones,
@@ -193,7 +218,7 @@ async function requestStep(
  * and nothing is returned, so no partial result can be saved.
  */
 export async function runMotion(
-  poses: string[],
+  poses: PlannedPose[],
   settings: MotionSettings,
   onProgress: (p: Progress) => void
 ): Promise<Keyframe[]> {
@@ -214,7 +239,7 @@ export async function runMotion(
 }
 
 async function converge(
-  poses: string[],
+  poses: PlannedPose[],
   settings: MotionSettings,
   bones: THREE.Bone[],
   candidates: Candidate[],
@@ -222,13 +247,21 @@ async function converge(
   onProgress: (p: Progress) => void
 ): Promise<Keyframe[]> {
   // Pose 1 starts from the learner's initial state when one was set, else the rest pose.
-  const { initialState } = useAtmosphereStore.getState();
-  if (initialState && initialState.length === bones.length) restore(bones, initialState);
-  else resetToRest(bones);
+  restoreStartPose(bones);
   const keyframes: Keyframe[] = [];
 
   for (let p = 0; p < poses.length; p++) {
-    const pose = poses[p];
+    const { text: pose, segments } = poses[p];
+
+    // Gemini authored the whole pose: adopt it in one go, then let Jev judge and refine.
+    if (segments) {
+      try {
+        applySegmentsToRig(bones, segments, viewport.camera);
+      } catch {
+        // Not a recognisable humanoid: Jev converges from the previous pose alone.
+      }
+    }
+
     let best = { match: -1, quats: snapshot(bones) };
     let converged = false;
     const memory: StepMemory = new Map();

@@ -4,6 +4,7 @@ import { useState } from "react";
 import CornerBrackets from "@/components/CornerBrackets";
 import {
   runMotion,
+  startingSegments,
   ITERATIONS_RANGE,
   STEP_RANGE,
   DEFAULT_SETTINGS,
@@ -11,6 +12,7 @@ import {
   type Progress,
 } from "@/lib/convergence";
 import { createAnimation } from "@/lib/animations";
+import type { PlannedPose } from "@/lib/geminiClient";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 
 export default function MotionModal({ onClose }: { onClose: () => void }) {
@@ -35,13 +37,14 @@ export default function MotionModal({ onClose }: { onClose: () => void }) {
       const res = await fetch("/api/motion/decompose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, current: startingSegments() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Request failed.");
-      setPoses(data.poses);
+      const planned: PlannedPose[] = data.poses;
+      setPoses(planned.map((p) => p.text));
 
-      const keyframes = await runMotion(data.poses, settings, setProgress);
+      const keyframes = await runMotion(planned, settings, setProgress);
       setSaved((await createAnimation(keyframes, useAtmosphereStore.getState().initialState ?? undefined)).label);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed.");
