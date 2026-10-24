@@ -16,6 +16,8 @@ export interface PoseSegments {
   across: Vec3;
   /** Hips -> shoulders. */
   torso_up: Vec3;
+  /** Neck -> head: how the head is tilted. */
+  head_up?: Vec3;
   upper_arm_l?: Vec3;
   forearm_l?: Vec3;
   upper_arm_r?: Vec3;
@@ -128,6 +130,7 @@ function poseRig(rig: HumanoidRig, segments: PoseSegments) {
     aim(rig.upperArm[s], segments[`upper_arm_${s}`]);
     aim(rig.foreArm[s], segments[`forearm_${s}`]);
   }
+  aim(rig.neck, segments.head_up);
 }
 
 /** Poses the model from written segment directions (e.g. authored by Gemini). */
@@ -155,7 +158,11 @@ export function measureSegments(bones: THREE.Bone[], camera: THREE.Camera): Pose
       .normalize()
   );
 
-  const segments: PoseSegments = { across: round(across), torso_up: round(torsoUp) };
+  const segments: PoseSegments = {
+    across: round(across),
+    torso_up: round(torsoUp),
+    head_up: limbDirection(rig.neck),
+  };
   for (const s of SIDES) {
     segments[`upper_arm_${s}`] = limbDirection(rig.upperArm[s]);
     segments[`forearm_${s}`] = limbDirection(rig.foreArm[s]);

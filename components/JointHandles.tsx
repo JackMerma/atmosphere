@@ -83,6 +83,7 @@ export default function JointHandles() {
       raycaster.setFromCamera(ndc, camera);
       if (!raycaster.ray.intersectPlane(drag.plane, target)) return;
 
+      drag.bone.getWorldPosition(drag.pivot);
       desiredDir.subVectors(target, drag.pivot);
       drag.handle.getWorldPosition(handleWorld);
       currentDir.subVectors(handleWorld, drag.pivot);

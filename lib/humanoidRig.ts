@@ -15,9 +15,11 @@ export interface HumanoidRig {
   foot: Partial<Record<Side, Limb>>;
   upperArm: Record<Side, Limb>;
   foreArm: Partial<Record<Side, Limb>>;
+  /** Neck bone pointing at the head: its direction is the head's tilt. */
+  neck?: Limb;
 }
 
-type Part = "thigh" | "calf" | "foot" | "upperArm" | "foreArm";
+export type Part = "thigh" | "calf" | "foot" | "upperArm" | "foreArm" | "neck";
 
 /** Strips side markers ("Left", "_L", ".R") and returns them separately. */
 function parseName(raw: string): { side: Side | null; core: string } {
@@ -43,6 +45,12 @@ function classify(core: string): Part | null {
   return null;
 }
 
+/** Which limb segment a bone is, judged by its name; null for anything else. */
+export function classifyBone(name: string): Part | null {
+  const { core } = parseName(name);
+  return core === "neck" ? "neck" : classify(core);
+}
+
 const firstBoneChild = (bone: THREE.Bone) =>
   bone.children.find((c): c is THREE.Bone => c instanceof THREE.Bone) ?? null;
 
@@ -53,8 +61,14 @@ const firstBoneChild = (bone: THREE.Bone) =>
  */
 export function mapHumanoid(bones: THREE.Bone[]): HumanoidRig {
   const found: Partial<Record<Part, Partial<Record<Side, THREE.Bone>>>> = {};
+  let neck: THREE.Bone | undefined;
+  let head: THREE.Bone | undefined;
   for (const bone of bones) {
     const { side, core } = parseName(bone.name);
+    if (!side) {
+      if (core === "neck") neck ??= bone;
+      else if (core === "head") head ??= bone;
+    }
     const part = classify(core);
     if (!side || !part) continue;
     (found[part] ??= {})[side] ??= bone;
@@ -88,5 +102,6 @@ export function mapHumanoid(bones: THREE.Bone[]): HumanoidRig {
     foot: { l: chain("foot", null, "l"), r: chain("foot", null, "r") },
     upperArm: { l: armL, r: armR },
     foreArm: { l: chain("foreArm", null, "l"), r: chain("foreArm", null, "r") },
+    neck: neck && head ? { bone: neck, child: head } : undefined,
   };
 }

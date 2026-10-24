@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { constrainBone } from "@/lib/jointLimits";
 
 /** Every bone in a model, in scene-traversal order (stable for a given file). */
 export function collectBones(scene: THREE.Object3D) {
@@ -24,5 +25,6 @@ export function applyWorldRotation(bone: THREE.Bone, delta: THREE.Quaternion) {
   } else {
     bone.quaternion.copy(newWorldQuat);
   }
+  constrainBone(bone);
   bone.updateMatrixWorld(true);
 }

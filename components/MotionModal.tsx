@@ -15,6 +15,10 @@ import { createAnimation } from "@/lib/animations";
 import type { PlannedPose } from "@/lib/geminiClient";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 
+/** CSS variable the .range track uses to paint its filled portion. */
+const fill = (value: number, range: { min: number; max: number }) =>
+  ({ "--fill": `${((value - range.min) / (range.max - range.min)) * 100}%` }) as React.CSSProperties;
+
 export default function MotionModal({ onClose }: { onClose: () => void }) {
   const [prompt, setPrompt] = useState("");
   const [poses, setPoses] = useState<string[]>([]);
@@ -81,7 +85,8 @@ export default function MotionModal({ onClose }: { onClose: () => void }) {
               value={settings.iterations}
               disabled={busy}
               onChange={(e) => setSettings({ ...settings, iterations: Number(e.target.value) })}
-              className="w-40 accent-accent"
+              className="range w-40"
+              style={fill(settings.iterations, ITERATIONS_RANGE)}
             />
           </label>
           <label className="flex items-center justify-between gap-3">
@@ -94,7 +99,8 @@ export default function MotionModal({ onClose }: { onClose: () => void }) {
               value={settings.stepDegrees}
               disabled={busy}
               onChange={(e) => setSettings({ ...settings, stepDegrees: Number(e.target.value) })}
-              className="w-40 accent-accent"
+              className="range w-40"
+              style={fill(settings.stepDegrees, STEP_RANGE)}
             />
           </label>
         </div>

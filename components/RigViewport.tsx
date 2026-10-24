@@ -6,6 +6,7 @@ import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import JointHandles from "@/components/JointHandles";
 import ViewportBridge from "@/components/ViewportBridge";
 import PlaybackDriver from "@/components/PlaybackDriver";
+import CentroidLock from "@/components/CentroidLock";
 
 export default function RigViewport() {
   const scene = useAtmosphereStore((s) => s.scene);
@@ -19,6 +20,7 @@ export default function RigViewport() {
       >
         <ViewportBridge />
         <PlaybackDriver />
+        <CentroidLock />
         <color attach="background" args={["#f3efe4"]} />
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 5, 3]} intensity={1.1} />
