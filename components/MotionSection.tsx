@@ -7,6 +7,7 @@ import {
   CANDIDATES_RANGE,
   ITERATIONS_RANGE,
   LIMIT_RANGE,
+  MOTION_ROUNDS_RANGE,
   STEP_RANGE,
 } from "@/lib/motionSettings";
 import { setLimitStrength } from "@/lib/jointLimits";
@@ -16,11 +17,19 @@ import { toast } from "@/store/useToasts";
 /** Long enough for the merge animation to land before the first request goes out. */
 const MERGE_SETTLE_MS = 650;
 
-/** Fraction of the whole generation done: beats finished plus the current beat's rounds. */
+/** How much of the bar polishing the poses takes; the rest is tuning the motion. */
+const REFINE_SHARE = 0.8;
+
+/** Fraction of the whole generation done: beats finished, then the motion rounds. */
 function overall(progress: Progress | null) {
-  if (!progress || progress.phase !== "refining" || progress.keyframeCount === 0) return 0;
+  if (!progress) return 0;
+  if (progress.phase === "tuning") {
+    const done = progress.rounds ? progress.round / progress.rounds : 1;
+    return REFINE_SHARE + (1 - REFINE_SHARE) * done;
+  }
+  if (progress.phase !== "refining" || progress.keyframeCount === 0) return 0;
   const beat = progress.keyframe - 1 + (progress.rounds ? progress.round / progress.rounds : 0);
-  return Math.min(1, beat / progress.keyframeCount);
+  return Math.min(1, beat / progress.keyframeCount) * REFINE_SHARE;
 }
 
 /** CSS variable the .range track uses to paint its filled portion. */
@@ -104,7 +113,12 @@ export default function MotionSection() {
 
     try {
       const result = await generateAnimation(prompt, settings, setProgress);
-      const animation = await createAnimation(result.keyframes, result.duration, result.loop);
+      const animation = await createAnimation(
+        result.keyframes,
+        result.duration,
+        result.loop,
+        result.motion
+      );
       toast.success(
         `${animation.label} saved · ${result.duration.toFixed(1)}s · ${result.beats} pose${
           result.beats === 1 ? "" : "s"
@@ -148,11 +162,18 @@ export default function MotionSection() {
           />
           <div className="flex flex-col gap-2 font-mono text-xs uppercase tracking-widest">
             <Slider
-              label="Rounds"
+              label="Pose rounds"
               value={settings.iterations}
               range={ITERATIONS_RANGE}
               disabled={busy}
               onChange={(iterations) => setSettings({ ...settings, iterations })}
+            />
+            <Slider
+              label="Motion rounds"
+              value={settings.motionRounds}
+              range={MOTION_ROUNDS_RANGE}
+              disabled={busy}
+              onChange={(motionRounds) => setSettings({ ...settings, motionRounds })}
             />
             <Slider
               label="Candidates"
@@ -186,7 +207,9 @@ export default function MotionSection() {
               <p>
                 {progress.phase === "planning"
                   ? progress.text
-                  : `Pose ${progress.keyframe}/${progress.keyframeCount} · round ${progress.round}/${progress.rounds} · match ${progress.match?.toFixed(2)}`}
+                  : progress.phase === "tuning"
+                    ? `How it moves · round ${progress.round}/${progress.rounds}`
+                    : `Pose ${progress.keyframe}/${progress.keyframeCount} · round ${progress.round}/${progress.rounds} · match ${progress.match?.toFixed(2)}`}
               </p>
               {progress.phase === "refining" && (
                 <p className="line-clamp-3 normal-case tracking-normal">{progress.text}</p>
@@ -203,7 +226,13 @@ export default function MotionSection() {
           >
             {busy && <span aria-hidden className="spinner" />}
             {busy
-              ? `${progress?.phase === "refining" ? "Refining…" : "Directing…"} ${elapsed}s`
+              ? `${
+                  progress?.phase === "refining"
+                    ? "Refining…"
+                    : progress?.phase === "tuning"
+                      ? "Tuning…"
+                      : "Directing…"
+                } ${elapsed}s`
               : "Generate"}
           </button>
           {busy && (

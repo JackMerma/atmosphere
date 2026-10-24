@@ -68,22 +68,26 @@ interface Asset {
 }
 
 /**
- * Asks Jev which of several candidate poses best matches a target, as a single
+ * Asks Jev which of several candidates best matches a target, as a single
  * Choice between them.
  *
  * Ranking beats scoring here. Jev's absolute scores sit low and barely move, so
  * hill-climbing on them is close to random; asked to pick a winner it only has
  * to see which picture is closer, which it does reliably. One call replaces one
- * per candidate, and the caller passes the current pose in as a candidate, so
- * the answer can never be worse than where it started.
+ * per candidate, and the caller passes what it already has in as a candidate,
+ * so the answer can never be worse than where it started.
  *
  * Each candidate is given from several angles, because the axis a motion lives
  * on is often the one the camera is looking down.
  */
-export async function askJevRank(args: {
-  /** One entry per candidate, each a list of base64 views of that candidate. */
+async function askJevChoice(args: {
+  /** One entry per candidate, each a list of base64 images of that candidate. */
   candidates: string[][];
-  /** Written description of the pose they are all aiming at. */
+  /** What every candidate is a view of, as Jev should read it. */
+  subject: string;
+  /** How to judge them, ending in the question. */
+  instructions: string;
+  /** Written description of what they are all aiming at. */
   text?: string;
   /** Base64 photo whose body pose they are all aiming at. */
   referenceBase64?: string;
@@ -105,14 +109,11 @@ export async function askJevRank(args: {
       return ref;
     });
     criteria[name] =
-      `The figure shown in the ${views.length} views listed under \`options.${name}\`.`;
+      `The ${args.subject} shown in the ${views.length} images listed under \`options.${name}\`.`;
   });
 
   const state: Record<string, unknown> = { options };
-  let instructions =
-    "Each option shows the same 3D figure in a different pose, from several camera angles. " +
-    "Judge every option across all of its views, paying attention to which way the arms and " +
-    "legs point front-to-back, which a single head-on view hides. ";
+  let instructions = args.instructions + " ";
 
   if (args.referenceBase64) {
     const ref = crypto.randomUUID();
@@ -123,7 +124,7 @@ export async function askJevRank(args: {
       "Ignore clothing, style, identity and camera framing.";
   } else {
     state.target_pose = args.text!;
-    instructions += "Which option best matches the pose described in `target_pose`?";
+    instructions += "Which option best matches `target_pose`?";
   }
 
   const res = await fetch("https://api.typesafe.ai/v1/systemone", {
@@ -152,6 +153,49 @@ export async function askJevRank(args: {
     throw new Error("Jev returned an unexpected choice.");
   }
   return { best: index, usage: data.usage };
+}
+
+/** Asks Jev which candidate POSE is closest to the target. */
+export function askJevRank(args: {
+  candidates: string[][];
+  text?: string;
+  referenceBase64?: string;
+}) {
+  return askJevChoice({
+    ...args,
+    subject: "figure",
+    instructions:
+      "Each option shows the same 3D figure in a different pose, from several camera angles. " +
+      "Judge every option across all of its views, paying attention to which way the arms and " +
+      "legs point front-to-back, which a single head-on view hides.",
+  });
+}
+
+/**
+ * Asks Jev which candidate MOTION reads best, from strips of frames.
+ *
+ * A pose can be judged from a picture; motion cannot, and Jev is given no
+ * video. A strip is the way round it: each option is the same animation laid
+ * out as numbered frames in order, so weight, timing and whether the feet
+ * actually pass each other are all visible in a still image. The options
+ * differ only in how the motion is played -- the poses in them are the same --
+ * so what is being asked about is the movement and nothing else.
+ */
+export function askJevRankMotion(args: { candidates: string[][]; text: string }) {
+  return askJevChoice({
+    ...args,
+    subject: "animation",
+    instructions:
+      "Each option is a sheet of frames from one animation of the same 3D figure, numbered in " +
+      "time order and read left to right then down, all shot from a fixed camera so the " +
+      "figure's height in the frame is its real height. The options show the same poses " +
+      "played differently: how " +
+      "far each pose is committed to, how much the limbs trail behind the body, how the body " +
+      "rises and falls, and how the time between poses is spent. Judge the movement, not the " +
+      "picture quality: does the weight shift believably, do the limbs lead and follow instead " +
+      "of arriving together, and does the figure look like a body doing this rather than a " +
+      "mannequin being posed?",
+  });
 }
 
 /** Body parts attention is directed at; the names Jev is asked to choose between. */

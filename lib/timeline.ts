@@ -7,6 +7,13 @@ import { settlePose } from "@/lib/settle";
 import { DEFAULT_MOTION, type MotionParams } from "@/lib/motionParams";
 import type { Animation } from "@/lib/animations";
 
+/**
+ * What it takes to play a motion: the poses, how long it lasts and whether it
+ * repeats. Less than a saved animation, so a generation can be played and
+ * judged before there is anything to save.
+ */
+export type Motion = Pick<Animation, "keyframes" | "duration" | "loop">;
+
 /** A one-off animation rests on its final pose, then blends back to the start to repeat. */
 const HOLD_AT_END = 0.4;
 const RETURN_TIME = 0.6;
@@ -16,7 +23,7 @@ const MIN_CYCLE_RETURN = 0.12;
 const MAX_LAG = 0.13;
 
 /** How long an animation rests on its last pose, and how long it takes to return. */
-export function tail(animation: Animation) {
+export function tail(animation: Motion) {
   const total = animation.duration ?? 0;
   if (!animation.loop) return { hold: HOLD_AT_END, back: RETURN_TIME };
   const segments = Math.max(1, animation.keyframes.length - 1);
@@ -24,13 +31,13 @@ export function tail(animation: Animation) {
 }
 
 /** Seconds from the start of the animation to the start of its next repeat. */
-export function cycleLength(animation: Animation) {
+export function cycleLength(animation: Motion) {
   const { hold, back } = tail(animation);
   return (animation.duration ?? 0) + hold + back;
 }
 
 /** Whether the figure has its weight on the floor at this point in the animation. */
-export function groundedAt(animation: Animation, time: number) {
+export function groundedAt(animation: Motion, time: number) {
   const frames = animation.keyframes;
   if (!frames.some((k) => k.grounded !== undefined)) return false;
   let i = 0;
@@ -46,7 +53,7 @@ export function groundedAt(animation: Animation, time: number) {
  * and waits on the pose, over 1 it holds and then goes. It is what lets a judge
  * be shown the same poses with the time between them spent differently.
  */
-export function sampleTimeline(animation: Animation, time: number, spacing = 1) {
+export function sampleTimeline(animation: Motion, time: number, spacing = 1) {
   const frames = animation.keyframes;
   const total = animation.duration ?? 0;
   const last = frames[frames.length - 1];
@@ -139,7 +146,7 @@ export interface Timeline {
  * second implementation of it that has drifted.
  */
 export function timelineFor(
-  animation: Animation,
+  animation: Motion,
   model: THREE.Object3D,
   bones: THREE.Bone[],
   params: MotionParams = DEFAULT_MOTION

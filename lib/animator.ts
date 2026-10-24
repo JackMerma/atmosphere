@@ -4,6 +4,8 @@ import { refinePose } from "@/lib/refine";
 import type { MotionSettings } from "@/lib/motionSettings";
 import type { Keyframe } from "@/lib/animations";
 import type { MotionPlan } from "@/lib/plannerClient";
+import { tuneMotion } from "@/lib/tuneMotion";
+import { DEFAULT_MOTION, type MotionParams } from "@/lib/motionParams";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 
 /** Length of an animation with no prompt: straight from the initial to the final state. */
@@ -12,7 +14,7 @@ const DEFAULT_DURATION = 2;
 const SAME_POSE_DEGREES = 2;
 
 export interface Progress {
-  phase: "planning" | "refining";
+  phase: "planning" | "refining" | "tuning";
   /** Which pose is being polished, 1-based, and how many there are. */
   keyframe: number;
   keyframeCount: number;
@@ -28,6 +30,8 @@ export interface Generated {
   loop: boolean;
   /** Poses the planner authored. */
   beats: number;
+  /** How those poses are played: the dials Jev settled on. */
+  motion: MotionParams;
 }
 
 async function requestPlan(body: unknown): Promise<MotionPlan> {
@@ -96,6 +100,7 @@ export async function generateAnimation(
       duration: DEFAULT_DURATION,
       loop: false,
       beats: 0,
+      motion: DEFAULT_MOTION,
     };
   }
 
@@ -217,12 +222,29 @@ export async function generateAnimation(
       previous = quats;
     }
 
-    return {
-      keyframes,
-      duration: plan.duration + holds,
-      loop: plan.loop,
-      beats: plan.keyframes.length,
-    };
+    const duration = plan.duration + holds;
+
+    // The poses are as close to what was asked for as judging them one at a
+    // time can get them. What is left is how they are PLAYED, which no pose
+    // says anything about -- so Jev is shown the whole motion as strips of
+    // frames and asked which way of playing it reads best.
+    const motion = await tuneMotion({
+      motion: { keyframes, duration, loop: plan.loop },
+      prompt,
+      rounds: settings.motionRounds,
+      onProgress: (p) =>
+        onProgress({
+          phase: "tuning",
+          keyframe: plan.keyframes.length,
+          keyframeCount: plan.keyframes.length,
+          round: p.round,
+          rounds: p.rounds,
+          match: null,
+          text: "How it moves",
+        }),
+    });
+
+    return { keyframes, duration, loop: plan.loop, beats: plan.keyframes.length, motion };
   } finally {
     // The stage model always goes back to its initial pose, success or not.
     restorePose(bones, startQuats);

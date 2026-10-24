@@ -25,16 +25,8 @@ function modelVertices(model: THREE.Object3D) {
   return out;
 }
 
-/**
- * A camera looking the same way as `camera` (so "left"/"up"/"toward viewer" mean
- * the same thing) but moved to centre the model on screen and fit all of it,
- * whatever pose it is in or where the user orbited. Fits the actual vertices,
- * not the axis-aligned box, whose corners overshoot when viewed at an angle.
- */
-function fittingCamera(camera: THREE.PerspectiveCamera, model: THREE.Object3D, yaw: number) {
-  const verts = modelVertices(model);
-  if (verts.length === 0) throw new Error("The model has no visible geometry to capture.");
-
+/** The three screen axes a capture is taken along: right, up, and back toward the camera. */
+function frameBasis(camera: THREE.PerspectiveCamera, yaw: number) {
   const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
   const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
   const back = new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion);
@@ -50,28 +42,69 @@ function fittingCamera(camera: THREE.PerspectiveCamera, model: THREE.Object3D, y
     up.applyQuaternion(turn);
     back.applyQuaternion(turn);
   }
+  return { right, up, back };
+}
 
-  // Screen-plane extents of the model, to centre it.
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+type Basis = ReturnType<typeof frameBasis>;
+
+/** How far the model reaches along each of those axes, in world units. */
+interface Extents {
+  minX: number; maxX: number;
+  minY: number; maxY: number;
+  minZ: number; maxZ: number;
+}
+
+function extentsOf(model: THREE.Object3D, { right, up, back }: Basis): Extents {
+  const verts = modelVertices(model);
+  if (verts.length === 0) throw new Error("The model has no visible geometry to capture.");
+  const e: Extents = {
+    minX: Infinity, maxX: -Infinity,
+    minY: Infinity, maxY: -Infinity,
+    minZ: Infinity, maxZ: -Infinity,
+  };
   const p = new THREE.Vector3();
   for (let i = 0; i < verts.length; i += 3) {
     p.set(verts[i], verts[i + 1], verts[i + 2]);
     const x = p.dot(right), y = p.dot(up), z = p.dot(back);
-    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
-    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
-    minZ = Math.min(minZ, z); maxZ = Math.max(maxZ, z);
+    e.minX = Math.min(e.minX, x); e.maxX = Math.max(e.maxX, x);
+    e.minY = Math.min(e.minY, y); e.maxY = Math.max(e.maxY, y);
+    e.minZ = Math.min(e.minZ, z); e.maxZ = Math.max(e.maxZ, z);
   }
-  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  return e;
+}
+
+const widen = (a: Extents, b: Extents): Extents => ({
+  minX: Math.min(a.minX, b.minX), maxX: Math.max(a.maxX, b.maxX),
+  minY: Math.min(a.minY, b.minY), maxY: Math.max(a.maxY, b.maxY),
+  minZ: Math.min(a.minZ, b.minZ), maxZ: Math.max(a.maxZ, b.maxZ),
+});
+
+/**
+ * A camera looking the same way as `camera` (so "left"/"up"/"toward viewer" mean
+ * the same thing) but moved to centre and fit what `extents` covers.
+ *
+ * Distance is worked out from the corners of that box rather than from the
+ * vertices, which overshoots a little and so frames slightly wide. That is the
+ * right trade for a frame shared by several poses: it is the one case where the
+ * vertices of every pose are not all in hand at once, and framing wide only
+ * costs a few pixels where framing tight would clip a limb.
+ */
+function cameraFor(camera: THREE.PerspectiveCamera, basis: Basis, e: Extents) {
+  const { right, up, back } = basis;
+  const cx = (e.minX + e.maxX) / 2, cy = (e.minY + e.maxY) / 2;
 
   // Rendered square, so the vertical field of view is the limit on both axes.
   const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
 
-  // Every vertex must satisfy |offset| <= tan * (distance - z) in camera space.
+  // Every corner must satisfy |offset| <= tan * (distance - z) in camera space.
   let distance = 0;
-  for (let i = 0; i < verts.length; i += 3) {
-    p.set(verts[i], verts[i + 1], verts[i + 2]);
-    const spread = Math.max(Math.abs(p.dot(right) - cx), Math.abs(p.dot(up) - cy)) * FIT_PADDING;
-    distance = Math.max(distance, spread / tan + p.dot(back));
+  for (const x of [e.minX, e.maxX]) {
+    for (const y of [e.minY, e.maxY]) {
+      for (const z of [e.minZ, e.maxZ]) {
+        const spread = Math.max(Math.abs(x - cx), Math.abs(y - cy)) * FIT_PADDING;
+        distance = Math.max(distance, spread / tan + z);
+      }
+    }
   }
 
   const fit = camera.clone();
@@ -83,7 +116,7 @@ function fittingCamera(camera: THREE.PerspectiveCamera, model: THREE.Object3D, y
     .addScaledVector(back, distance);
   fit.aspect = 1;
   fit.near = 0.01;
-  fit.far = distance - minZ + (maxZ - minZ) + 1;
+  fit.far = distance - e.minZ + (e.maxZ - e.minZ) + 1;
   fit.updateProjectionMatrix();
   fit.updateMatrixWorld(true);
   return fit;
@@ -108,12 +141,38 @@ export default function ViewportBridge() {
     canvas.width = CAPTURE_SIZE;
     canvas.height = CAPTURE_SIZE;
 
-    async function capture(side: Side = "initial", yaw = 0) {
+    /**
+     * Frames held still across a run of captures, by side and angle.
+     *
+     * A capture normally re-centres on the figure, which is right when the
+     * question is what pose it is in. It is wrong when the question is how it
+     * moves: re-centring every frame subtracts exactly the rise and fall that
+     * carries the weight, and a strip of frames taken that way shows a figure
+     * pedalling in a fixed box. A locked frame is widened to hold every pose it
+     * is shown, and then every shot is taken from the same place.
+     */
+    const locked = new Map<string, { basis: Basis; extents: Extents }>();
+
+    function sceneFor(side: Side) {
       const store = useAtmosphereStore.getState();
       const scene = side === "initial" ? store.scene : store.finalScene;
-      const other = side === "initial" ? store.finalScene : store.scene;
       if (!scene) throw new Error("No model loaded.");
       if (!(camera instanceof THREE.PerspectiveCamera)) throw new Error("Unsupported camera.");
+      return { scene, other: side === "initial" ? store.finalScene : store.scene, camera };
+    }
+
+    /** Widens the frame for this side and angle to also hold the pose on screen now. */
+    function lockFrame(side: Side, yaw = 0) {
+      const { scene, camera: cam } = sceneFor(side);
+      const key = `${side}:${yaw}`;
+      const held = locked.get(key);
+      const basis = held?.basis ?? frameBasis(cam, yaw);
+      const extents = extentsOf(scene, basis);
+      locked.set(key, { basis, extents: held ? widen(held.extents, extents) : extents });
+    }
+
+    async function capture(side: Side = "initial", yaw = 0) {
+      const { scene, other } = sceneFor(side);
 
       // Only the model being judged goes in the picture: no other model, no handles.
       const hidden: THREE.Object3D[] = [];
@@ -126,7 +185,10 @@ export default function ViewportBridge() {
       const previousTarget = gl.getRenderTarget();
       try {
         gl.setRenderTarget(target);
-        gl.render(threeScene, fittingCamera(camera, scene, yaw));
+        const held = locked.get(`${side}:${yaw}`);
+        const basis = held?.basis ?? frameBasis(camera as THREE.PerspectiveCamera, yaw);
+        const extents = held?.extents ?? extentsOf(scene, basis);
+        gl.render(threeScene, cameraFor(camera as THREE.PerspectiveCamera, basis, extents));
         gl.readRenderTargetPixels(target, 0, 0, CAPTURE_SIZE, CAPTURE_SIZE, pixels);
       } finally {
         gl.setRenderTarget(previousTarget);
@@ -143,7 +205,7 @@ export default function ViewportBridge() {
       return canvas.toDataURL("image/jpeg", 0.85);
     }
 
-    setViewport({ camera, capture });
+    setViewport({ camera, capture, lockFrame, clearFrames: () => locked.clear() });
     return () => {
       setViewport(null);
       target.dispose();

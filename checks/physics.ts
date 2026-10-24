@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { buildJointLimits, setLimitStrength } from "@/lib/jointLimits";
+import { setLimitStrength } from "@/lib/jointLimits";
 import { resolveCollisions } from "@/lib/collision";
 import { settlePose } from "@/lib/settle";
 import { reachToward } from "@/lib/ikChain";

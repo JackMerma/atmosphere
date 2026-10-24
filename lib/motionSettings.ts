@@ -10,6 +10,12 @@ import { DEFAULT_LIMIT_STRENGTH } from "@/lib/jointLimits";
 export interface MotionSettings {
   /** Refinement rounds per judged pose. */
   iterations: number;
+  /**
+   * Rounds spent tuning how the finished poses are PLAYED, judged as whole
+   * motion rather than pose by pose. 0 plays them exactly as authored, which
+   * is how to see what this is worth.
+   */
+  motionRounds: number;
   /** Candidate poses tried (and ranked together) each round. */
   candidates: number;
   /** Largest rotation, in degrees, a random nudge may apply to a limb. */
@@ -19,12 +25,14 @@ export interface MotionSettings {
 }
 
 export const ITERATIONS_RANGE = { min: 0, max: 50, default: 10 };
+export const MOTION_ROUNDS_RANGE = { min: 0, max: 12, default: 4 };
 export const CANDIDATES_RANGE = { min: 2, max: 8, default: 4 };
 export const STEP_RANGE = { min: 5, max: 60, default: 20 };
 export const LIMIT_RANGE = { min: 0, max: 1, default: DEFAULT_LIMIT_STRENGTH };
 
 export const DEFAULT_SETTINGS: MotionSettings = {
   iterations: ITERATIONS_RANGE.default,
+  motionRounds: MOTION_ROUNDS_RANGE.default,
   candidates: CANDIDATES_RANGE.default,
   stepDegrees: STEP_RANGE.default,
   limitStrength: LIMIT_RANGE.default,

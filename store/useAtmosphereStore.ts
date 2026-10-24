@@ -18,6 +18,13 @@ export interface ViewportApi {
    * camera the user is looking through.
    */
   capture: (side?: Side, yaw?: number) => Promise<string>;
+  /**
+   * Holds the framing of later captures still, widening it to fit the pose on
+   * screen now. Without it a capture re-centres on the figure, which subtracts
+   * the very rise and fall a strip of frames is meant to show.
+   */
+  lockFrame: (side: Side, yaw?: number) => void;
+  clearFrames: () => void;
 }
 
 /** The photo a pose was estimated from, with its detected landmarks. */

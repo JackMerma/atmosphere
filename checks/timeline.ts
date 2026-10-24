@@ -19,7 +19,6 @@ const rest = bones.map((b) => b.quaternion.toArray());
 const name = (b: THREE.Bone) => bones.indexOf(b);
 
 const ARM = name(by("mixamorigLeftArm"));
-const HAND = name(by("mixamorigLeftHand"));
 const FORE = name(by("mixamorigLeftForeArm"));
 const THIGH = name(by("mixamorigLeftUpLeg"));
 
