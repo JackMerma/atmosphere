@@ -23,9 +23,9 @@ const SPECS: Record<Part, Spec> = {
   upperArm: { twist: 60, swing: 165 },
   foreArm: { twist: 70, swing: 150, hinge: { max: 150, slack: 5 } },
   // A hip swings far forward, barely backward, and hardly crosses the midline.
-  thigh: { twist: 45, swing: 125, cone: { front: 120, back: 35, out: 65, in: 25 } },
-  calf: { twist: 10, swing: 150, hinge: { max: 150, slack: 5 } },
-  foot: { twist: 20, swing: 55 },
+  thigh: { twist: 65, swing: 160, cone: { front: 150, back: 65, out: 90, in: 45 } },
+  calf: { twist: 20, swing: 155, hinge: { max: 155, slack: 8 } },
+  foot: { twist: 35, swing: 75 },
   neck: { twist: 60, swing: 50 },
 };
 
