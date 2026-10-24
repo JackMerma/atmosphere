@@ -9,7 +9,7 @@ export type Vec3 = [number, number, number];
 /**
  * A whole-body pose as segment directions (start joint -> end joint), seen from
  * the camera. `l`/`r` are the character's own left and right. Shared by the
- * photo pipeline (from landmarks) and the prompt pipeline (written by Gemini).
+ * photo pipeline (from landmarks) and the prompt pipeline (written by the planner).
  */
 export interface PoseSegments {
   /** Character's right hip -> left hip. */
@@ -133,7 +133,7 @@ function poseRig(rig: HumanoidRig, segments: PoseSegments) {
   aim(rig.neck, segments.head_up);
 }
 
-/** Poses the model from written segment directions (e.g. authored by Gemini). */
+/** Poses the model from written segment directions (e.g. authored by the planner). */
 export function applySegmentsToRig(
   bones: THREE.Bone[],
   segments: PoseSegments,

@@ -1,7 +1,8 @@
 import type { PoseSegments } from "@/lib/poseRetarget";
 import { EASES, type Ease } from "@/lib/easing";
 
-const DEFAULT_MODEL = "gemini-2.5-flash";
+/** Cheap, strong at structured JSON, and non-reasoning (fast). Override with OPENAI_MODEL. */
+const DEFAULT_MODEL = "gpt-4.1-mini";
 
 /** One directed beat of the animation, between the start and end states. */
 export interface PlannedKeyframe {
@@ -42,8 +43,6 @@ const MAX_KEYFRAMES = 8;
 const RETRIES = 3;
 /** Directing a long motion can take a while, but never this long: fail with a clear message instead of hanging. */
 const REQUEST_TIMEOUT_MS = 90_000;
-/** Tokens Gemini may spend thinking before it answers; the vectors need care, not essays. */
-const THINKING_BUDGET = 1024;
 
 const SYSTEM_PROMPT = `You are the director and animator of a rigged humanoid 3D character. You are given its START pose and its END pose as segment vectors, and a plain-language description of the motion between them. You decide everything that makes the animation feel produced: how long it takes, which poses it passes through, and how fast each part moves. A separate system then renders the in-between frames.
 
@@ -83,21 +82,24 @@ Respect human anatomy so the body never deforms: elbows bend only one way (the f
 
 Every keyframe must list ALL segments. Return JSON.`;
 
-const vec3 = { type: "ARRAY", items: { type: "NUMBER" }, minItems: 3, maxItems: 3 };
+const vec3 = { type: "array", items: { type: "number" } };
 
+/** OpenAI strict structured output: every key required, no extra keys, no minItems/maxItems. */
 const RESPONSE_SCHEMA = {
-  type: "OBJECT",
+  type: "object",
+  additionalProperties: false,
   properties: {
-    duration: { type: "NUMBER" },
+    duration: { type: "number" },
     keyframes: {
-      type: "ARRAY",
+      type: "array",
       items: {
-        type: "OBJECT",
+        type: "object",
+        additionalProperties: false,
         properties: {
-          t: { type: "NUMBER" },
-          ease: { type: "STRING", enum: EASES },
-          hold: { type: "NUMBER" },
-          text: { type: "STRING" },
+          t: { type: "number" },
+          ease: { type: "string", enum: EASES },
+          hold: { type: "number" },
+          text: { type: "string" },
           ...Object.fromEntries(SEGMENT_KEYS.map((k) => [k, vec3])),
         },
         required: ["t", "ease", "hold", "text", ...SEGMENT_KEYS],
@@ -119,7 +121,7 @@ function isVec3(v: unknown): v is [number, number, number] {
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
 /**
- * Asks Gemini to direct the animation between two known poses. Keyframes with
+ * Asks the planner model to direct the animation between two known poses. Keyframes with
  * unusable vectors are dropped rather than failing the whole plan.
  */
 export async function planMotion(
@@ -127,54 +129,59 @@ export async function planMotion(
   start: PoseSegments,
   end: PoseSegments
 ): Promise<MotionPlan> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not set (add it to .env.local).");
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set (add it to .env.local).");
 
   const userText =
     `START pose:\n${JSON.stringify(start)}\n\nEND pose:\n${JSON.stringify(end)}\n\n` +
     `Motion description:\n${prompt}`;
 
-  const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
+  const model = process.env.OPENAI_MODEL || DEFAULT_MODEL;
   const request = () =>
-    fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ role: "user", parts: [{ text: userText }] }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: RESPONSE_SCHEMA,
-          thinkingConfig: { thinkingBudget: THINKING_BUDGET },
+        model,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userText },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: { name: "motion_plan", strict: true, schema: RESPONSE_SCHEMA },
         },
       }),
     });
 
-  // 503 means the model is briefly overloaded: wait and retry. A 429 is a spent quota; retrying won't help.
+  // 5xx means OpenAI is briefly overloaded: wait and retry. A 429 is a spent quota or a
+  // rate limit, and retrying immediately won't help.
   let res: Response;
   try {
     res = await request();
-    for (let attempt = 1; res.status === 503 && attempt <= RETRIES; attempt++) {
+    for (let attempt = 1; res.status >= 500 && attempt <= RETRIES; attempt++) {
       await new Promise((r) => setTimeout(r, attempt * 3000));
       res = await request();
     }
   } catch (err) {
     if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
       throw new Error(
-        `Gemini took longer than ${REQUEST_TIMEOUT_MS / 1000}s to direct the motion. Try again, or shorten the prompt.`
+        `The planner took longer than ${REQUEST_TIMEOUT_MS / 1000}s to direct the motion. Try again, or shorten the prompt.`
       );
     }
     throw err;
   }
 
   if (!res.ok) {
-    throw new Error(`Gemini request failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
+    throw new Error(`OpenAI request failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
   }
 
   const data = await res.json();
-  const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Gemini returned no content.");
+  const message = data?.choices?.[0]?.message;
+  if (message?.refusal) throw new Error(`OpenAI declined the request: ${message.refusal}`);
+  const text: string | undefined = message?.content;
+  if (!text) throw new Error("OpenAI returned no content.");
 
   const raw = JSON.parse(text);
   const rawKeyframes: Record<string, unknown>[] = Array.isArray(raw?.keyframes)

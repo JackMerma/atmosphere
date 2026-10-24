@@ -1,4 +1,4 @@
-/** How a segment of an animation accelerates: the "speed" dimension Gemini directs. */
+/** How a segment of an animation accelerates: the "speed" dimension the planner directs. */
 export type Ease = "linear" | "in" | "out" | "inOut" | "overshoot";
 
 export const EASES: Ease[] = ["linear", "in", "out", "inOut", "overshoot"];

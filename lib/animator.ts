@@ -2,7 +2,7 @@ import { applySegmentsToRig, measureSegments } from "@/lib/poseRetarget";
 import { bonesOf, poseDistance, restorePose, slotQuats } from "@/lib/pose";
 import { refinePose, type MotionSettings } from "@/lib/refine";
 import type { Keyframe } from "@/lib/animations";
-import type { MotionPlan } from "@/lib/geminiClient";
+import type { MotionPlan } from "@/lib/plannerClient";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 
 /** Length of an animation with no prompt: straight from the initial to the final state. */
@@ -24,7 +24,7 @@ export interface Progress {
 export interface Generated {
   keyframes: Keyframe[];
   duration: number;
-  /** Beats Gemini directed between the two states. */
+  /** Beats the planner directed between the two states. */
   beats: number;
 }
 
@@ -43,8 +43,8 @@ async function requestPlan(prompt: string, start: unknown, end: unknown): Promis
  * Builds an animation from the initial state to the final state.
  *
  * With no prompt it is a direct, eased blend between the two poses. With a
- * prompt, Gemini directs it: the duration, the intermediate beats, each beat's
- * easing and hold. Every directed beat is first posed exactly from Gemini's
+ * prompt, the planner directs it: the duration, the intermediate beats, each beat's
+ * easing and hold. Every directed beat is first posed exactly from the planner's
  * vectors, then refined by Jev with parallel candidates against its
  * description. The in-between frames are interpolated at playback, within the
  * joint limits. The stage model is left in its initial pose, and on any

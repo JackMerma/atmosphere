@@ -59,7 +59,7 @@ function Slider({ label, suffix = "", value, range, step = 1, disabled, onChange
 /**
  * Collapsible Motion controls inside the main panel. Generating builds an
  * animation from the initial state to the final state; the prompt is optional
- * and, when given, lets Gemini direct the timing and the beats in between.
+ * and, when given, lets the planner direct the timing and the beats in between.
  */
 export default function MotionSection() {
   const hasJoints = useAtmosphereStore((s) => s.joints.length > 0);

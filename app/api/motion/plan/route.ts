@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { planMotion } from "@/lib/geminiClient";
+import { planMotion } from "@/lib/plannerClient";
 import type { PoseSegments } from "@/lib/poseRetarget";
 
 const isPose = (v: unknown): v is PoseSegments =>
