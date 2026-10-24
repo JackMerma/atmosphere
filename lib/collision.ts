@@ -30,6 +30,22 @@ const THICKNESS = { limb: 0.19, leg: 0.22, torso: 0.34, head: 0.5 };
 /** Overlap smaller than this fraction of the bodies' combined radius is left alone. */
 const TOLERANCE = 0.04;
 
+/**
+ * How much of a detected overlap is actually corrected, 0 (limbs pass through
+ * each other freely) to 1 (fully rigid, the original always-on behaviour).
+ * Module state, like `jointLimits`' strength dial: read on every settle, which
+ * must not reach into React.
+ */
+let collisionStrength = 1;
+
+export function setCollisionStrength(value: number) {
+  collisionStrength = Math.min(1, Math.max(0, value));
+}
+
+export function getCollisionStrength() {
+  return collisionStrength;
+}
+
 const start = new THREE.Vector3();
 const end = new THREE.Vector3();
 
@@ -217,6 +233,7 @@ function nudge(
  * doll, but it should never pass through itself.
  */
 export function resolveCollisions(bones: THREE.Bone[]): number {
+  if (collisionStrength <= 0) return 0;
   const rig = rigFor(bones);
   if (!rig) return 0;
   const anchor = anchorFor(bones);
@@ -246,8 +263,9 @@ export function resolveCollisions(bones: THREE.Bone[]): number {
 
     // Each movable part gives way by half; against the torso, one gives way fully.
     const share = a.movable && b.movable ? 0.5 : 1;
-    if (a.movable) nudge(a.bone, closestA, normal.clone().multiplyScalar(-overlap), share, anchor);
-    if (b.movable) nudge(b.bone, closestB, normal.clone().multiplyScalar(overlap), share, anchor);
+    const correction = overlap * collisionStrength;
+    if (a.movable) nudge(a.bone, closestA, normal.clone().multiplyScalar(-correction), share, anchor);
+    if (b.movable) nudge(b.bone, closestB, normal.clone().multiplyScalar(correction), share, anchor);
   }
   return hits;
 }

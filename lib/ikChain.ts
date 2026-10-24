@@ -8,6 +8,22 @@ const FALLOFF = 0.45;
 /** Two sweeps are enough to look connected without the chain wobbling. */
 const SWEEPS = 2;
 
+/**
+ * How far a pull on one joint is felt by the joints above it, 0 (that joint
+ * alone) to 1 (the full reach into the shoulder and chest, as originally
+ * tuned). Module state, like `jointLimits`' strength dial, because it has to
+ * be read wherever a drag is in progress without threading it through props.
+ */
+let chainStrength = 1;
+
+export function setChainStrength(value: number) {
+  chainStrength = Math.min(1, Math.max(0, value));
+}
+
+export function getChainStrength() {
+  return chainStrength;
+}
+
 const handleWorld = new THREE.Vector3();
 const pivot = new THREE.Vector3();
 const toHandle = new THREE.Vector3();
@@ -38,7 +54,11 @@ export function reachToward(handle: THREE.Bone, target: THREE.Vector3, anchor: T
     // Nearest joint first, so the later, weaker ones correct what it left over.
     for (let i = 0; i < chain.length; i++) {
       const joint = chain[i];
-      const share = Math.pow(FALLOFF, i);
+      // i=0 always gets share=1 (x^0=1 for any x>=0), which is what lets the
+      // handle follow the cursor at all even with the dial at 0 -- that joint
+      // is the one mechanically attached to the dot being dragged, not "another
+      // limb". Strength only governs whether the pull is felt any further up.
+      const share = Math.pow(FALLOFF * chainStrength, i);
 
       handle.getWorldPosition(handleWorld);
       joint.getWorldPosition(pivot);

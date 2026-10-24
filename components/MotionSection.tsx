@@ -6,11 +6,9 @@ import { createAnimation } from "@/lib/animations";
 import {
   CANDIDATES_RANGE,
   ITERATIONS_RANGE,
-  LIMIT_RANGE,
   MOTION_ROUNDS_RANGE,
   STEP_RANGE,
 } from "@/lib/motionSettings";
-import { setLimitStrength } from "@/lib/jointLimits";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { toast } from "@/store/useToasts";
 
@@ -84,9 +82,6 @@ export default function MotionSection() {
   const [progress, setProgress] = useState<Progress | null>(null);
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-
-  // The limits live outside React, where the render loop can reach them.
-  useEffect(() => setLimitStrength(settings.limitStrength), [settings.limitStrength]);
 
   // A visible clock, so a long step reads as working rather than stuck.
   useEffect(() => {
@@ -181,15 +176,6 @@ export default function MotionSection() {
               range={CANDIDATES_RANGE}
               disabled={busy}
               onChange={(candidates) => setSettings({ ...settings, candidates })}
-            />
-            <Slider
-              label="Joint limits"
-              suffix="%"
-              value={Math.round(settings.limitStrength * 100)}
-              range={{ min: LIMIT_RANGE.min * 100, max: LIMIT_RANGE.max * 100 }}
-              step={5}
-              disabled={busy}
-              onChange={(percent) => setSettings({ ...settings, limitStrength: percent / 100 })}
             />
             <Slider
               label="Step"

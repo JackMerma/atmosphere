@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import ModelUpload from "@/components/ModelUpload";
 import MotionSection from "@/components/MotionSection";
+import PhysicsSection from "@/components/PhysicsSection";
 import StateColumn from "@/components/StateColumn";
 import RigViewport from "@/components/RigViewport";
 import CornerBrackets from "@/components/CornerBrackets";
@@ -46,6 +47,7 @@ export default function Home() {
         <CornerBrackets />
         <div className="flex flex-col gap-3">
           <ModelUpload />
+          <PhysicsSection />
           <MotionSection />
           <AnimationsHistoryPanel />
           <PlayButton />

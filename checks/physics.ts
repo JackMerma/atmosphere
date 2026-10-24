@@ -2,7 +2,8 @@ import * as THREE from "three";
 import { setLimitStrength } from "@/lib/jointLimits";
 import { resolveCollisions } from "@/lib/collision";
 import { settlePose } from "@/lib/settle";
-import { reachToward } from "@/lib/ikChain";
+import { reachToward, setChainStrength } from "@/lib/ikChain";
+import { setCollisionStrength } from "@/lib/collision";
 import { buildRig } from "./rig";
 
 const DEG = Math.PI / 180;
@@ -113,6 +114,100 @@ setLimitStrength(0.7);
   root.updateMatrixWorld(true);
   const hips = turned("mixamorigHips");
   check("Hips stay put", hips < 0.01, hips.toFixed(4) + "deg");
+}
+
+// 6. Chain strength at 0 moves only the joint attached to the handle: nothing
+//    further up reacts at all.
+{
+  setChainStrength(0);
+  resetAll();
+  const hand = by("mixamorigLeftHand");
+  reachToward(
+    hand,
+    at("mixamorigLeftHand").add(new THREE.Vector3(-0.25, 0.35, 0.1)),
+    by("mixamorigHips")
+  );
+  root.updateMatrixWorld(true);
+  const fore = turned("mixamorigLeftForeArm");
+  const arm = turned("mixamorigLeftArm");
+  check("Chain 0: the grabbed joint's own joint still moves", fore > 5, fore.toFixed(1) + "deg");
+  check("Chain 0: nothing further up reacts", arm < 0.01, arm.toFixed(4) + "deg");
+  setChainStrength(1);
+}
+
+// 7. Chain strength in between sits between 0 and the full-strength shoulder lean.
+{
+  const target = at("mixamorigLeftHand").add(new THREE.Vector3(-0.25, 0.35, 0.1));
+
+  setChainStrength(1);
+  resetAll();
+  reachToward(by("mixamorigLeftHand"), target, by("mixamorigHips"));
+  root.updateMatrixWorld(true);
+  const full = turned("mixamorigLeftArm");
+
+  setChainStrength(0.5);
+  resetAll();
+  reachToward(by("mixamorigLeftHand"), target, by("mixamorigHips"));
+  root.updateMatrixWorld(true);
+  const half = turned("mixamorigLeftArm");
+  check(
+    "Chain 50%: the shoulder lean sits between 0 and full strength",
+    half > 0.01 && half < full,
+    `0 < ${half.toFixed(2)}deg < ${full.toFixed(2)}deg`
+  );
+  setChainStrength(1);
+}
+
+// 8. Collision strength at 0 detects an overlap but leaves it uncorrected.
+{
+  setCollisionStrength(0);
+  resetAll();
+  for (const side of ["Left", "Right"] as const) {
+    const sx = side === "Left" ? 1 : -1;
+    by("mixamorig" + side + "Arm").quaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), -sx * 95 * DEG);
+    by("mixamorig" + side + "ForeArm").quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), sx * 160 * DEG);
+  }
+  root.updateMatrixWorld(true);
+  const hits = resolveCollisions(bones);
+  check("Collision 0%: nothing is reported, nothing is corrected", hits === 0, hits + " hits reported");
+  setCollisionStrength(1);
+}
+
+// 9. Collision strength at 50% corrects the overlap by less than full strength
+//    does. The forearm's own rotation axis cannot absorb this particular push
+//    (it runs along the bone), so it walks up to the shoulder instead -- the
+//    same chain-climbing `collision.ts` documents -- which is the bone to
+//    measure, not the forearm itself.
+{
+  const pose = () => {
+    resetAll();
+    for (const side of ["Left", "Right"] as const) {
+      const sx = side === "Left" ? 1 : -1;
+      by("mixamorig" + side + "Arm").quaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), -sx * 95 * DEG);
+      by("mixamorig" + side + "ForeArm").quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), sx * 160 * DEG);
+    }
+    root.updateMatrixWorld(true);
+  };
+
+  pose();
+  const authored = turned("mixamorigLeftArm");
+
+  setCollisionStrength(1);
+  pose();
+  resolveCollisions(bones);
+  const full = authored - turned("mixamorigLeftArm");
+
+  setCollisionStrength(0.5);
+  pose();
+  resolveCollisions(bones);
+  const half = authored - turned("mixamorigLeftArm");
+
+  check(
+    "Collision 50%: the correction is between none and the full push",
+    half > 0.01 && half < full,
+    `0 < ${half.toFixed(2)}deg < ${full.toFixed(2)}deg of shoulder correction`
+  );
+  setCollisionStrength(1);
 }
 
 console.log(results.join("\n"));
