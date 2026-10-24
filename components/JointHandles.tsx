@@ -36,6 +36,7 @@ export default function JointHandles() {
   const joints = useAtmosphereStore((s) => s.joints);
   const setDraggingJoint = useAtmosphereStore((s) => s.setDraggingJoint);
   const capturing = useAtmosphereStore((s) => s.capturing);
+  const generating = useAtmosphereStore((s) => s.generating);
   const { camera, gl } = useThree();
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -113,7 +114,7 @@ export default function JointHandles() {
   }, [activeId, camera, gl, setDraggingJoint]);
 
   return (
-    <group visible={!capturing}>
+    <group visible={!capturing && !generating}>
       {bones.map((bone) => (
         <JointDot
           key={bone.uuid}

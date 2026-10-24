@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { collectBones } from "@/lib/boneMath";
+import { constrainPose } from "@/lib/jointLimits";
 
 const SECONDS_PER_SEGMENT = 1.2;
 
@@ -46,6 +47,8 @@ export default function PlaybackDriver() {
       qb.fromArray(frames[from + 1][i]);
       bone.quaternion.slerpQuaternions(qa, qb, t);
     });
+    // Easing between two legal poses can still pass outside the limits.
+    constrainPose(bones);
   });
 
   return null;

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { buildJointLimits } from "@/lib/jointLimits";
 
 export interface JointInfo {
   id: string;
@@ -24,10 +25,12 @@ export function parseGltfBuffer(buffer: ArrayBuffer): Promise<ParsedModel> {
       "",
       (gltf) => {
         const joints: JointInfo[] = [];
+        const bones: THREE.Bone[] = [];
 
         gltf.scene.traverse((object) => {
           if (object instanceof THREE.Bone) {
             object.userData.restQuaternion = object.quaternion.toArray();
+            bones.push(object);
             const parent = object.parent;
             joints.push({
               id: object.uuid,
@@ -46,6 +49,8 @@ export function parseGltfBuffer(buffer: ArrayBuffer): Promise<ParsedModel> {
           return;
         }
 
+        // Measured here, where the skeleton is guaranteed to still be at rest.
+        buildJointLimits(gltf.scene, bones);
         resolve({ scene: gltf.scene, joints });
       },
       (error) => {

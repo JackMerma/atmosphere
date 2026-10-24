@@ -45,12 +45,6 @@ function classify(core: string): Part | null {
   return null;
 }
 
-/** Which limb segment a bone is, judged by its name; null for anything else. */
-export function classifyBone(name: string): Part | null {
-  const { core } = parseName(name);
-  return core === "neck" ? "neck" : classify(core);
-}
-
 const firstBoneChild = (bone: THREE.Bone) =>
   bone.children.find((c): c is THREE.Bone => c instanceof THREE.Bone) ?? null;
 

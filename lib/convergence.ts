@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { applyWorldRotation, collectBones } from "@/lib/boneMath";
+import { constrainPose } from "@/lib/jointLimits";
 import type { Direction, StepResult } from "@/lib/jevClient";
 import type { PlannedPose } from "@/lib/geminiClient";
 import { applySegmentsToRig, measureSegments, type PoseSegments } from "@/lib/poseRetarget";
@@ -112,6 +113,8 @@ function snapshot(bones: THREE.Bone[]) {
 
 function restore(bones: THREE.Bone[], quats: number[][]) {
   bones.forEach((b, i) => b.quaternion.fromArray(quats[i]));
+  // Snapshots from an earlier session predate the current limits.
+  constrainPose(bones);
   bones.forEach((b) => b.updateMatrixWorld(true));
 }
 
