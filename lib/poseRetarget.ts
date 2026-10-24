@@ -31,6 +31,30 @@ export interface PoseSegments {
   foot_r?: Vec3;
 }
 
+/**
+ * The same pose with left and right swapped: the second half of a walk or a run
+ * is exactly this, so it can be derived rather than authored and judged again.
+ * Mirroring across the body's own plane keeps a cycle perfectly symmetric, which
+ * is most of what makes one read as a walk instead of a stagger.
+ */
+export function mirrorSegments(segments: PoseSegments): PoseSegments {
+  const flip = (v: Vec3 | undefined): Vec3 | undefined =>
+    v && [-v[0], v[1], v[2]];
+  const mirrored: PoseSegments = {
+    // The hip line reverses which hip it starts at as well as flipping.
+    across: [segments.across[0], -segments.across[1], -segments.across[2]],
+    torso_up: flip(segments.torso_up)!,
+    head_up: flip(segments.head_up),
+  };
+  for (const [a, b] of [["l", "r"] as const]) {
+    for (const part of ["upper_arm", "forearm", "thigh", "shin", "foot"] as const) {
+      mirrored[`${part}_${a}`] = flip(segments[`${part}_${b}`]);
+      mirrored[`${part}_${b}`] = flip(segments[`${part}_${a}`]);
+    }
+  }
+  return mirrored;
+}
+
 /** MediaPipe pose landmark indices (left/right are the subject's own). */
 const LM = {
   shoulder: { l: 11, r: 12 },

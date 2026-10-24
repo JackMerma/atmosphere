@@ -14,8 +14,10 @@ export interface ViewportApi {
   /**
    * Renders one model alone (joint dots hidden, the other model hidden), framed
    * whole and centred, as a JPEG data URL. Defaults to the animated stage model.
+   * `yaw` swings the shot around the model, in degrees, without moving the
+   * camera the user is looking through.
    */
-  capture: (side?: Side) => Promise<string>;
+  capture: (side?: Side, yaw?: number) => Promise<string>;
 }
 
 /** The photo a pose was estimated from, with its detected landmarks. */

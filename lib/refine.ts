@@ -14,7 +14,6 @@ import { useAtmosphereStore, type Side } from "@/store/useAtmosphereStore";
 /** A pose scoring at least this is considered matched; refinement stops there. */
 export const MATCH_THRESHOLD = 0.7;
 const MIN_STEP_DEGREES = 3;
-const MIN_GAIN = 0.005;
 
 /** Tunable from the Motion section; shared by pose refinement everywhere. */
 export interface MotionSettings {
@@ -48,11 +47,29 @@ export interface Target {
 export interface RefineProgress {
   round: number;
   rounds: number;
-  /** Best score so far. */
+  /** 1 when this round replaced the pose, 0 when it kept the one it had. */
   match: number;
 }
 
-async function judge(image: string, target: Target): Promise<number> {
+/**
+ * Angles the figure is shown from, as a yaw around the model in degrees.
+ * Front-on alone hides the front-to-back axis, which is exactly the one a walk,
+ * a reach or a kick lives on; the three-quarter view shows both.
+ */
+const VIEWS = [0, 55];
+
+async function rank(candidates: string[][], target: Target): Promise<number> {
+  const res = await fetch("/api/motion/rank", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ candidates, text: target.text, reference: target.reference }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Jev could not compare the poses.");
+  return data.best as number;
+}
+
+async function score(image: string, target: Target): Promise<number> {
   const res = await fetch("/api/motion/judge", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -156,13 +173,14 @@ function perturb(limbs: THREE.Bone[], stepRadians: number) {
 /**
  * Hill-climbs one model's pose toward a target.
  *
- * Each round builds several candidates, renders and judges them all in parallel
- * with Jev, and keeps the best only if it beats the current pose. Candidates come
- * first from a shuffled pool of structured edits (see `structuredCandidates`),
- * which fix the depth and facing errors photo estimation actually makes; once
- * those are spent it falls back to random multi-limb nudges that shrink as they
- * stop paying off. The model must already be in the pose to improve, and is left
- * in the best pose found.
+ * Each round builds several candidates, shows Jev every one of them from a
+ * couple of angles, and asks it to pick a winner -- with the pose we already
+ * have among the options, so a round can hold but never make things worse.
+ * Candidates come first from a shuffled pool of structured edits (see
+ * `structuredCandidates`), which fix the depth and facing errors pose
+ * estimation actually makes; once those are spent it falls back to random
+ * multi-limb nudges that shrink as they stop paying off. The model must already
+ * be in the pose to improve, and is left in the best pose found.
  */
 export async function refinePose(args: {
   side: Side;
@@ -175,10 +193,10 @@ export async function refinePose(args: {
   const bones = bonesOf(side);
   if (!viewport || bones.length === 0) throw new Error("Load a model first.");
 
+  const views = () => Promise.all(VIEWS.map((yaw) => viewport.capture(side, yaw)));
+
   const limbs = adjustableBones(bones);
   let best = snapshotPose(bones);
-  let bestScore = await judge(await viewport.capture(side), target);
-  const startMatch = bestScore;
   let step = settings.stepDegrees;
 
   // Only poses the rig can be read as segments can take the structured edits.
@@ -190,9 +208,14 @@ export async function refinePose(args: {
   }
   const pending = baseSegments ? structuredCandidates().sort(() => Math.random() - 0.5) : [];
 
-  for (let round = 1; round <= settings.iterations && bestScore < MATCH_THRESHOLD; round++) {
-    const candidates: PoseQuats[] = [];
-    const images: string[] = [];
+  const startMatch = settings.iterations > 0 ? await score(await viewport.capture(side), target) : 0;
+
+  for (let round = 1; round <= settings.iterations; round++) {
+    // The pose we already have goes in as option 1, so a round can only ever
+    // hold or improve: Jev is never forced to pick something worse.
+    const poses: PoseQuats[] = [best];
+    restorePose(bones, best);
+    const shots: string[][] = [await views()];
 
     for (let k = 0; k < settings.candidates; k++) {
       const move = pending.pop();
@@ -204,31 +227,32 @@ export async function refinePose(args: {
         restorePose(bones, best);
         perturb(limbs, THREE.MathUtils.degToRad(step));
       }
-      candidates.push(snapshotPose(bones));
-      images.push(await viewport.capture(side));
+      poses.push(snapshotPose(bones));
+      shots.push(await views());
     }
 
-    const scores = await Promise.all(images.map((image) => judge(image, target)));
-    const top = scores.indexOf(Math.max(...scores));
-    if (scores[top] > bestScore + MIN_GAIN) {
-      best = candidates[top];
-      bestScore = scores[top];
-      // The accepted pose is the new base for later structured edits.
+    const winner = await rank(shots, target);
+    const changed = winner > 0;
+    if (changed) {
+      best = poses[winner];
       restorePose(bones, best);
+      // The accepted pose is the new base for later structured edits.
       try {
         baseSegments = measureSegments(bones, viewport.camera);
       } catch {
         baseSegments = null;
       }
     } else if (pending.length === 0) {
+      // Nothing beat what we have and the structured moves are spent; aim smaller.
       step = Math.max(step * 0.75, MIN_STEP_DEGREES);
     }
-    onProgress?.({ round, rounds: settings.iterations, match: bestScore });
+    onProgress?.({ round, rounds: settings.iterations, match: changed ? 1 : 0 });
   }
 
   restorePose(bones, best);
+  const match = settings.iterations > 0 ? await score(await viewport.capture(side), target) : 0;
   console.info(
-    `[refine] ${side} ${target.reference ? "photo" : "text"}: ${startMatch.toFixed(2)} -> ${bestScore.toFixed(2)}`
+    `[refine] ${side} ${target.reference ? "photo" : "text"}: ${startMatch.toFixed(2)} -> ${match.toFixed(2)}`
   );
-  return { match: bestScore, quats: best, converged: bestScore >= MATCH_THRESHOLD, startMatch };
+  return { match, quats: best, converged: match >= MATCH_THRESHOLD, startMatch };
 }

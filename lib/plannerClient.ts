@@ -22,6 +22,8 @@ export interface MotionPlan {
   duration: number;
   /** A repeating cycle, whose last pose flows back into the first. */
   loop: boolean;
+  /** The second half of the cycle is the left/right mirror of the first. */
+  mirrorHalf: boolean;
   keyframes: PlannedKeyframe[];
 }
 
@@ -50,6 +52,7 @@ const SYSTEM_PROMPT = `You are the director and animator of a rigged humanoid 3D
 
 Return:
 - "duration": total seconds for the whole action, between 0.8 and 12. Fast, violent actions are short; floaty, graceful or suspended ones are long. A single step of a walk is about 0.5s.
+- "mirrorHalf": true when the second half of the cycle is the exact left-right mirror of the first half (walking, running, marching, climbing), so only the first half needs authoring. False when both halves differ (waving one hand, breathing, a limp). Only meaningful when "loop" is true, and only when you give an even number of poses.
 - "loop": true when the action is a repeating cycle (walking, running, waving, breathing), so the last pose must flow straight back into the first. False for an action with a beginning and an end (a jump, a fall, a throw).
 - "keyframes": 2 to ${MAX_KEYFRAMES} poses, in order, covering the WHOLE action. The first is where the character starts and the last is where it ends.
   Each has:
@@ -107,6 +110,7 @@ const RESPONSE_SCHEMA = {
   properties: {
     duration: { type: "number" },
     loop: { type: "boolean" },
+    mirrorHalf: { type: "boolean" },
     keyframes: {
       type: "array",
       items: {
@@ -123,7 +127,7 @@ const RESPONSE_SCHEMA = {
       },
     },
   },
-  required: ["duration", "loop", "keyframes"],
+  required: ["duration", "loop", "mirrorHalf", "keyframes"],
 };
 
 function isVec3(v: unknown): v is [number, number, number] {
@@ -235,6 +239,8 @@ export async function planMotion(
   return {
     duration: clamp(typeof raw?.duration === "number" ? raw.duration : 2, 0.8, 12),
     loop: raw?.loop === true,
+    // Only usable when the poses actually split into two matching halves.
+    mirrorHalf: raw?.mirrorHalf === true && raw?.loop === true && kept.length % 2 === 0,
     keyframes: kept,
   };
 }

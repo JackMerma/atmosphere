@@ -1,5 +1,5 @@
-import { applySegmentsToRig, measureSegments } from "@/lib/poseRetarget";
-import { bonesOf, poseDistance, restorePose, restQuats, slotQuats } from "@/lib/pose";
+import { applySegmentsToRig, measureSegments, mirrorSegments } from "@/lib/poseRetarget";
+import { bonesOf, poseDistance, restorePose, restQuats, slotQuats, snapshotPose } from "@/lib/pose";
 import { refinePose, type MotionSettings } from "@/lib/refine";
 import type { Keyframe } from "@/lib/animations";
 import type { MotionPlan } from "@/lib/plannerClient";
@@ -129,12 +129,20 @@ export async function generateAnimation(
     }
     const plan = await requestPlan(request);
 
+    // In a mirrored cycle only the first half is authored and judged; the rest
+    // is its exact left-right reflection, which is what keeps a walk symmetric
+    // instead of drifting as each pose is polished on its own.
+    const half = plan.mirrorHalf ? plan.keyframes.length / 2 : plan.keyframes.length;
+
     const keyframes: Keyframe[] = [];
     let holds = 0;
     let previous = startQuats;
 
     for (let i = 0; i < plan.keyframes.length; i++) {
       const beat = plan.keyframes[i];
+      const source = i < half ? beat : plan.keyframes[i - half];
+      const segments = i < half ? beat.segments : mirrorSegments(source.segments);
+      const text = i < half ? beat.text : `${source.text} (mirrored)`;
       const first = i === 0;
       const last = i === plan.keyframes.length - 1;
 
@@ -154,11 +162,16 @@ export async function generateAnimation(
         // Build the pose from the planner's vectors, carrying over the one
         // before it so unmentioned joints stay where the motion left them.
         restorePose(bones, previous);
-        applySegmentsToRig(bones, beat.segments, viewport.camera);
+        applySegmentsToRig(bones, segments, viewport.camera);
 
+        // A mirrored pose is already exact; judging it again would only let it
+        // drift away from the half it is supposed to match.
+        if (i >= half) {
+          quats = snapshotPose(bones);
+        } else {
         const refined = await refinePose({
           side: "initial",
-          target: { text: beat.text },
+          target: { text },
           settings,
           onProgress: (p) =>
             onProgress({
@@ -168,17 +181,18 @@ export async function generateAnimation(
               round: p.round,
               rounds: p.rounds,
               match: p.match,
-              text: beat.text,
+              text,
             }),
         });
         quats = refined.quats;
         match = refined.match;
         converged = refined.converged;
+        }
       }
 
       const time = beat.t * plan.duration + holds;
       keyframes.push({
-        pose: beat.text,
+        pose: text,
         match,
         converged,
         quats,
@@ -188,7 +202,7 @@ export async function generateAnimation(
       if (beat.hold > 0 && !last) {
         holds += beat.hold;
         keyframes.push({
-          pose: `${beat.text} (held)`,
+          pose: `${text} (held)`,
           match,
           converged,
           quats,

@@ -31,13 +31,25 @@ function modelVertices(model: THREE.Object3D) {
  * whatever pose it is in or where the user orbited. Fits the actual vertices,
  * not the axis-aligned box, whose corners overshoot when viewed at an angle.
  */
-function fittingCamera(camera: THREE.PerspectiveCamera, model: THREE.Object3D) {
+function fittingCamera(camera: THREE.PerspectiveCamera, model: THREE.Object3D, yaw: number) {
   const verts = modelVertices(model);
   if (verts.length === 0) throw new Error("The model has no visible geometry to capture.");
 
   const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
   const up = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
   const back = new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion);
+
+  // Swing the view around the world's vertical, so a judge can be shown the
+  // body from an angle that reveals what a head-on shot flattens away.
+  if (yaw !== 0) {
+    const turn = new THREE.Quaternion().setFromAxisAngle(
+      new THREE.Vector3(0, 1, 0),
+      THREE.MathUtils.degToRad(yaw)
+    );
+    right.applyQuaternion(turn);
+    up.applyQuaternion(turn);
+    back.applyQuaternion(turn);
+  }
 
   // Screen-plane extents of the model, to centre it.
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
@@ -63,6 +75,7 @@ function fittingCamera(camera: THREE.PerspectiveCamera, model: THREE.Object3D) {
   }
 
   const fit = camera.clone();
+  fit.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, up, back));
   fit.position
     .set(0, 0, 0)
     .addScaledVector(right, cx)
@@ -95,7 +108,7 @@ export default function ViewportBridge() {
     canvas.width = CAPTURE_SIZE;
     canvas.height = CAPTURE_SIZE;
 
-    async function capture(side: Side = "initial") {
+    async function capture(side: Side = "initial", yaw = 0) {
       const store = useAtmosphereStore.getState();
       const scene = side === "initial" ? store.scene : store.finalScene;
       const other = side === "initial" ? store.finalScene : store.scene;
@@ -113,7 +126,7 @@ export default function ViewportBridge() {
       const previousTarget = gl.getRenderTarget();
       try {
         gl.setRenderTarget(target);
-        gl.render(threeScene, fittingCamera(camera, scene));
+        gl.render(threeScene, fittingCamera(camera, scene, yaw));
         gl.readRenderTargetPixels(target, 0, 0, CAPTURE_SIZE, CAPTURE_SIZE, pixels);
       } finally {
         gl.setRenderTarget(previousTarget);
