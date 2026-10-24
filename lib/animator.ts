@@ -1,6 +1,7 @@
 import { applySegmentsToRig, measureSegments, mirrorSegments } from "@/lib/poseRetarget";
 import { bonesOf, poseDistance, restorePose, restQuats, slotQuats, snapshotPose } from "@/lib/pose";
-import { refinePose, type MotionSettings } from "@/lib/refine";
+import { refinePose } from "@/lib/refine";
+import type { MotionSettings } from "@/lib/motionSettings";
 import type { Keyframe } from "@/lib/animations";
 import type { MotionPlan } from "@/lib/plannerClient";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
@@ -171,7 +172,8 @@ export async function generateAnimation(
         } else {
         const refined = await refinePose({
           side: "initial",
-          target: { text },
+          // The planner's own vectors, so attention is measured rather than guessed.
+          target: { text, segments },
           settings,
           onProgress: (p) =>
             onProgress({

@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { JointInfo } from "@/lib/gltfJoints";
 import type { Animation } from "@/lib/animations";
 import type { PoseLandmark } from "@/lib/poseEstimation";
-import { DEFAULT_SETTINGS, type MotionSettings } from "@/lib/refine";
+import { DEFAULT_SETTINGS, type MotionSettings } from "@/lib/motionSettings";
 
 /** The two models on stage: where an animation starts and where it ends. */
 export type Side = "initial" | "final";

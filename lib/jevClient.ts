@@ -153,3 +153,80 @@ export async function askJevRank(args: {
   }
   return { best: index, usage: data.usage };
 }
+
+/** Body parts attention is directed at; the names Jev is asked to choose between. */
+export const BODY_PARTS = [
+  "left arm",
+  "right arm",
+  "left leg",
+  "right leg",
+  "head",
+  "torso",
+] as const;
+export type BodyPart = (typeof BODY_PARTS)[number];
+
+/**
+ * Asks Jev which part of the figure is furthest from the target, so the search
+ * can spend its candidates where the pose is actually wrong.
+ *
+ * This is only worth asking when the target is a photo. When it is a written
+ * pose the planner also supplied the exact direction every limb should point,
+ * and comparing against that is both free and more precise than any judgement
+ * from a picture.
+ */
+export async function askJevAttention(args: {
+  /** Views of the figure as it currently stands. */
+  views: string[];
+  referenceBase64: string;
+}): Promise<{ part: BodyPart; usage?: { input_tokens: number; output_tokens: number } }> {
+  const apiKey = process.env.TYPESAFE_API_KEY;
+  if (!apiKey) throw new Error("TYPESAFE_API_KEY is not set (add it to .env.local).");
+  if (args.views.length === 0) throw new Error("No views of the figure to look at.");
+
+  const assets: Record<string, Asset> = {};
+  const figure = args.views.map((view) => {
+    const ref = crypto.randomUUID();
+    assets[ref] = { type: "image", format: "jpg", data_base64: view };
+    return ref;
+  });
+  const reference = crypto.randomUUID();
+  assets[reference] = { type: "image", format: "jpg", data_base64: args.referenceBase64 };
+
+  const res = await fetch("https://api.typesafe.ai/v1/systemone", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+      "TypeSafe-Danger-Zone-Images": "true",
+    },
+    body: JSON.stringify({
+      model: "jev-latest",
+      state: { figure_views: figure, reference_photo: reference },
+      assets,
+      questions: {
+        part: {
+          type: "choice",
+          instructions:
+            "`figure_views` shows a posed 3D figure from several angles, and `reference_photo` " +
+            "shows the pose it is meant to be holding. Which part of the figure's body is " +
+            "furthest from the reference? Judge where each part points, not its shape or size.",
+          criteria: Object.fromEntries(
+            BODY_PARTS.map((part) => [part.replace(" ", "_"), `The figure's ${part}.`])
+          ),
+        },
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Jev request failed (${res.status}): ${(await res.text()).slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  const choice: string | undefined = data?.answers?.part?.choice;
+  const part = choice?.replace("_", " ") as BodyPart | undefined;
+  if (!part || !BODY_PARTS.includes(part)) {
+    throw new Error("Jev returned an unexpected body part.");
+  }
+  return { part, usage: data.usage };
+}

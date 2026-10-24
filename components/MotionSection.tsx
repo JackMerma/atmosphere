@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import { generateAnimation, type Progress } from "@/lib/animator";
 import { createAnimation } from "@/lib/animations";
-import { CANDIDATES_RANGE, ITERATIONS_RANGE, LIMIT_RANGE, STEP_RANGE } from "@/lib/refine";
+import {
+  CANDIDATES_RANGE,
+  ITERATIONS_RANGE,
+  LIMIT_RANGE,
+  STEP_RANGE,
+} from "@/lib/motionSettings";
 import { setLimitStrength } from "@/lib/jointLimits";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { toast } from "@/store/useToasts";
