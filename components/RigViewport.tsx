@@ -1,13 +1,12 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import { OrbitControls, Grid } from "@react-three/drei";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import JointHandles from "@/components/JointHandles";
 import ViewportBridge from "@/components/ViewportBridge";
 import PlaybackDriver from "@/components/PlaybackDriver";
 import CentroidLock from "@/components/CentroidLock";
-import Ground from "@/components/Ground";
 import StageChoreography from "@/components/StageChoreography";
 
 export default function RigViewport() {
@@ -24,7 +23,20 @@ export default function RigViewport() {
         <color attach="background" args={["#f3efe4"]} />
         <ambientLight intensity={0.9} />
         <directionalLight position={[3, 5, 3]} intensity={1.1} />
-        <Ground />
+        <Grid
+          args={[40, 40]}
+          position={[0, 0, 0]}
+          cellSize={0.5}
+          cellThickness={0.5}
+          cellColor="#d9d3c3"
+          sectionSize={2.5}
+          sectionThickness={1}
+          sectionColor="#b3b3af"
+          fadeDistance={28}
+          fadeStrength={1.2}
+          infiniteGrid
+          raycast={() => null}
+        />
         {/* Each model lives inside a stage group: the group places it on the
             stage and slides it, while CentroidLock pins the body within it. */}
         <StageChoreography

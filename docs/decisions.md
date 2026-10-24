@@ -19,36 +19,6 @@ round monotone by construction — it can hold, but never make things worse.
 The absolute score survives in `/api/motion/judge`, used twice per pose purely
 to report progress.
 
-## The travel goes into the ground, not the figure
-
-A planted foot and a travelling figure are the same rule: whatever movement the
-pose gives the foot carrying the weight is movement of the world instead. The
-only choice is which of the two actually moves on screen.
-
-**The figure** is the truthful answer and the wrong one here. A looping preview
-walks it out of shot in a few seconds, it fights `CentroidLock`, and the frame a
-judge is shown would have to be wide enough to cover the whole journey, which
-shrinks the figure in every frame of the sheet.
-
-**The ground** costs nothing. The grid is uniform and endless, so sliding it is
-indistinguishable from the figure crossing it; the figure stays framed however
-long it loops; and the travel shows up in the sheet Jev judges for free.
-
-The displacement measured is the same either way. Only where it is applied
-differs, and that is a presentation choice, not a physical one.
-
-## The travel curve is measured once, not accumulated per frame
-
-Travel is a sum of small steps and so has to be walked in order. The timeline is
-not sampled in order: the frames of a sheet jump around it, and playback can be
-asked for any instant. Accumulating per frame would therefore give playback and
-the judge different travel for the same animation — the exact drift the shared
-timeline exists to prevent.
-
-So it is measured once per animation, stepping the whole cycle at 48 samples a
-second, into a curve any instant can be read from. The stride falls out as a
-number, which is what the travel check asserts against.
-
 ## Jev judges the motion, not only the pose
 
 **It started as:** Jev ranking candidate poses, one pose at a time.

@@ -1,6 +1,5 @@
 import { bonesOf, sceneOf } from "@/lib/pose";
 import { timelineFor, type Motion } from "@/lib/timeline";
-import { GROUND_AT_REST, placeGround } from "@/lib/planting";
 import type { MotionParams } from "@/lib/motionParams";
 import { useAtmosphereStore, type Side } from "@/store/useAtmosphereStore";
 
@@ -128,7 +127,6 @@ export async function captureStrip(args: {
     return await Promise.all(shots.map(compose));
   } finally {
     viewport.clearFrames();
-    placeGround(GROUND_AT_REST);
     scene.position.copy(held);
     scene.updateMatrixWorld(true);
   }

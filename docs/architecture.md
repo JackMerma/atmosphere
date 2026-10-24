@@ -60,9 +60,7 @@ that render nothing and only act each frame:
   by way of `lib/timeline.ts`, which is the same code the offscreen captures a
   judge is shown go through.
 - **`CentroidLock`** — holds each model over its spot on the stage *sideways
-  only*. Height belongs to the floor, and travel belongs to the ground.
-- **`Ground`** — the floor grid, in a group of its own so a walk's travel can
-  be slid into it.
+  only*. Height belongs to the floor.
 - **`StageChoreography`** — owns the stage groups and the magnet transition.
 
 `JointHandles` draws the draggable orange dots. They sit outside the stage
@@ -84,7 +82,6 @@ lib/
   ikChain.ts        spreads a drag up the chain so a body reacts as a whole
   grounding.ts      stands the figure on its lowest foot
   anchor.ts         the hips: nothing automatic may rotate them
-  planting.ts       which foot has the weight, and the ground it is put into
   timeline.ts       the pose an animation holds at a given time, dials applied
   motionParams.ts   the dials: amplitude, drag, bob, arm phase, spacing
   motionStrip.ts    a whole animation as one numbered sheet of frames

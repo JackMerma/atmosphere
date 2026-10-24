@@ -17,14 +17,13 @@ npx tsx checks/mirror.ts        # mirroring a pose left/right
 npx tsx checks/attention.ts     # which limbs the search focuses on
 npx tsx checks/timeline.ts      # the dials that decide how a motion reads
 npx tsx checks/grounding.ts     # standing on the floor, and weight   (needs a model)
-npx tsx checks/travel.ts        # the planted foot, and the stride    (needs a model)
 npx tsx checks/formats.ts       # loading .glb / .fbx / .zip          (needs a model)
 ```
 
 Each prints a `PASS`/`FAIL` line per assertion and exits non-zero on failure.
 
 The first five build a synthetic Mixamo-named skeleton in code (`rig.ts`) and
-need nothing else. The last three need a real model: drop any rigged `.glb`, `.gltf`,
+need nothing else. The last two need a real model: drop any rigged `.glb`, `.gltf`,
 `.fbx` or Sketchfab `.zip` into `checks/fixtures/` and they pick it up by
 extension. Without one they skip with a message rather than fail.
 `checks/fixtures/` is not committed — the models are large and not ours to
@@ -52,10 +51,6 @@ redistribute.
 - **`grounding.ts`** — that the feet stay on the floor while the hips drop into
   a crouch, that a deeper crouch drops further, and that the bob dial scales
   that contact. This is the weight.
-- **`travel.ts`** — that the planted foot does not slide across the ground,
-  measured in the ground's own frame over several stances, and that a walk
-  travels along one axis while standing still and an airborne motion travel
-  nothing. This is the end of the skating.
 - **`formats.ts`** — that each format loads, normalises to the same height, is
   recognised as a humanoid, and that the two stage copies share no bone and no
   material.
