@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { generateAnimation, type Progress } from "@/lib/animator";
 import { createAnimation } from "@/lib/animations";
 import {
@@ -11,6 +11,14 @@ import {
   type MotionSettings,
 } from "@/lib/refine";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
+import { toast } from "@/store/useToasts";
+
+/** Fraction of the whole generation done: beats finished plus the current beat's rounds. */
+function overall(progress: Progress | null) {
+  if (!progress || progress.phase !== "refining" || progress.keyframeCount === 0) return 0;
+  const beat = progress.keyframe - 1 + (progress.rounds ? progress.round / progress.rounds : 0);
+  return Math.min(1, beat / progress.keyframeCount);
+}
 
 /** CSS variable the .range track uses to paint its filled portion. */
 const fill = (value: number, range: { min: number; max: number }) =>
@@ -60,27 +68,33 @@ export default function MotionSection() {
   const [prompt, setPrompt] = useState("");
   const [settings, setSettings] = useState<MotionSettings>(DEFAULT_SETTINGS);
   const [progress, setProgress] = useState<Progress | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+
+  // A visible clock, so a long step reads as working rather than stuck.
+  useEffect(() => {
+    if (!busy) return;
+    const started = Date.now();
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 500);
+    return () => clearInterval(id);
+  }, [busy]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    setElapsed(0);
     setBusy(true);
     setGenerating(true);
-    setError(null);
-    setSaved(null);
     setProgress(null);
     try {
       const result = await generateAnimation(prompt, settings, setProgress);
       const animation = await createAnimation(result.keyframes, result.duration);
-      setSaved(
-        `${animation.label} · ${result.duration.toFixed(1)}s · ${result.beats} directed beat${
+      toast.success(
+        `${animation.label} saved · ${result.duration.toFixed(1)}s · ${result.beats} directed beat${
           result.beats === 1 ? "" : "s"
         }`
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not build the animation.");
+      toast.error(err instanceof Error ? err.message : "Could not build the animation.");
     } finally {
       setBusy(false);
       setGenerating(false);
@@ -152,22 +166,29 @@ export default function MotionSection() {
               )}
             </div>
           )}
-          {error && (
-            <p className="font-mono text-xs uppercase tracking-widest text-accent">{error}</p>
-          )}
-          {saved && (
-            <p className="font-mono text-xs uppercase tracking-widest text-foreground/70">
-              Saved: {saved}
-            </p>
-          )}
 
           <button
             type="submit"
             disabled={busy}
-            className="btn px-4 py-2 font-mono text-xs uppercase tracking-widest"
+            data-loading={busy}
+            aria-busy={busy}
+            className="btn flex items-center justify-center gap-2 px-4 py-2 font-mono text-xs uppercase tracking-widest"
           >
-            {busy ? "Working…" : "Generate"}
+            {busy && <span aria-hidden className="spinner" />}
+            {busy
+              ? `${progress?.phase === "refining" ? "Refining…" : "Directing…"} ${elapsed}s`
+              : "Generate"}
           </button>
+          {busy && (
+            <div
+              className="rail"
+              data-indeterminate={!progress || progress.phase === "planning"}
+              role="progressbar"
+              aria-label="Generation progress"
+            >
+              <span style={{ width: `${overall(progress) * 100}%` }} />
+            </div>
+          )}
         </form>
       )}
     </div>

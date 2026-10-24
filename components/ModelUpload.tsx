@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { parseModelPair } from "@/lib/gltfJoints";
 import { saveModel, clearAnimations } from "@/lib/db";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
+import { toast } from "@/store/useToasts";
 
 export default function ModelUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -24,7 +25,9 @@ export default function ModelUpload() {
       setAnimations([]);
       await clearAnimations();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not read this file.");
+      const message = err instanceof Error ? err.message : "Could not read this file.";
+      setError(message);
+      toast.error(message);
     } finally {
       if (inputRef.current) inputRef.current.value = "";
     }

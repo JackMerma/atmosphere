@@ -40,6 +40,10 @@ const SEGMENT_KEYS = [
 
 const MAX_KEYFRAMES = 8;
 const RETRIES = 3;
+/** Directing a long motion can take a while, but never this long: fail with a clear message instead of hanging. */
+const REQUEST_TIMEOUT_MS = 90_000;
+/** Tokens Gemini may spend thinking before it answers; the vectors need care, not essays. */
+const THINKING_BUDGET = 1024;
 
 const SYSTEM_PROMPT = `You are the director and animator of a rigged humanoid 3D character. You are given its START pose and its END pose as segment vectors, and a plain-language description of the motion between them. You decide everything that makes the animation feel produced: how long it takes, which poses it passes through, and how fast each part moves. A separate system then renders the in-between frames.
 
@@ -134,6 +138,7 @@ export async function planMotion(
   const request = () =>
     fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: "POST",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
@@ -141,15 +146,26 @@ export async function planMotion(
         generationConfig: {
           responseMimeType: "application/json",
           responseSchema: RESPONSE_SCHEMA,
+          thinkingConfig: { thinkingBudget: THINKING_BUDGET },
         },
       }),
     });
 
   // 503 means the model is briefly overloaded: wait and retry. A 429 is a spent quota; retrying won't help.
-  let res = await request();
-  for (let attempt = 1; res.status === 503 && attempt <= RETRIES; attempt++) {
-    await new Promise((r) => setTimeout(r, attempt * 3000));
+  let res: Response;
+  try {
     res = await request();
+    for (let attempt = 1; res.status === 503 && attempt <= RETRIES; attempt++) {
+      await new Promise((r) => setTimeout(r, attempt * 3000));
+      res = await request();
+    }
+  } catch (err) {
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new Error(
+        `Gemini took longer than ${REQUEST_TIMEOUT_MS / 1000}s to direct the motion. Try again, or shorten the prompt.`
+      );
+    }
+    throw err;
   }
 
   if (!res.ok) {

@@ -8,6 +8,7 @@ import { poseModelFrom } from "@/lib/initialPose";
 import { bonesOf, resetToRest, restQuats, snapshotPose } from "@/lib/pose";
 import { refinePose, DEFAULT_SETTINGS } from "@/lib/refine";
 import { useAtmosphereStore, type PoseReference, type Side } from "@/store/useAtmosphereStore";
+import { toast } from "@/store/useToasts";
 
 const buttonClass =
   "btn inline-flex items-center justify-center px-3 py-2 font-mono text-xs uppercase tracking-widest";
@@ -95,7 +96,6 @@ export default function StateColumn({ side }: { side: Side }) {
   const busyElsewhere = useAtmosphereStore((s) => s.generating || s.playing);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [moved, setMoved] = useState(false);
   const [dragging, setDragging] = useState<number | null>(null);
 
@@ -118,7 +118,6 @@ export default function StateColumn({ side }: { side: Side }) {
     const file = e.target.files?.[0];
     if (!file) return;
     setBusy(true);
-    setError(null);
     setStatus("Estimating pose…");
     try {
       const { world, image, size } = await estimatePose(file);
@@ -129,7 +128,7 @@ export default function StateColumn({ side }: { side: Side }) {
         reference: { url: URL.createObjectURL(file), name: file.name, landmarks: image, world, size },
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not read the pose from this image.");
+      toast.error(err instanceof Error ? err.message : "Could not read the pose from this image.");
     } finally {
       setBusy(false);
       setStatus(null);
@@ -150,7 +149,6 @@ export default function StateColumn({ side }: { side: Side }) {
   async function refine() {
     if (!reference) return;
     setBusy(true);
-    setError(null);
     try {
       const photo = await photoForJev(reference.url);
       const result = await refinePose({
@@ -162,7 +160,7 @@ export default function StateColumn({ side }: { side: Side }) {
       });
       setSlot(side, { quats: result.quats, name: `${reference.name} (refined)` });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Refinement failed.");
+      toast.error(err instanceof Error ? err.message : "Refinement failed.");
     } finally {
       setBusy(false);
       setStatus(null);
@@ -284,8 +282,7 @@ export default function StateColumn({ side }: { side: Side }) {
       {status && (
         <p className="font-mono text-xs uppercase tracking-widest text-foreground/70">{status}</p>
       )}
-      {error && <p className="font-mono text-xs uppercase tracking-widest text-accent">{error}</p>}
-      {slot.name && !error && !status && (
+      {slot.name && !status && (
         <p className="flex items-center justify-between gap-2 font-mono text-xs uppercase tracking-widest text-foreground/50">
           <span className="truncate">{slot.name}</span>
           <button

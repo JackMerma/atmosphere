@@ -11,6 +11,7 @@ import { parseModelPair } from "@/lib/gltfJoints";
 import { loadModel, loadAnimations } from "@/lib/db";
 import AnimationsHistoryPanel from "@/components/AnimationsHistoryPanel";
 import PlayButton from "@/components/PlayButton";
+import Toaster from "@/components/Toaster";
 
 export default function Home() {
   const setLoading = useAtmosphereStore((s) => s.setLoading);
@@ -50,6 +51,7 @@ export default function Home() {
           <PlayButton />
         </div>
       </div>
+      <Toaster />
       <StateColumn side="initial" />
       <StateColumn side="final" />
     </div>
