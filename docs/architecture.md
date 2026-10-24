@@ -30,7 +30,7 @@ fights the code that holds each body in place inside its own group.
 | `scene` / `finalScene` | the two models |
 | `slots.initial` / `slots.final` | each side's saved pose, its name, and the photo it came from |
 | `animations`, `activeAnimationId`, `playing` | the history and playback |
-| `settings` | refinement limits and the joint-limit dial |
+| `settings` | refinement limits and the three physics dials (joint limits, chain reaction, collisions) |
 | `viewport` | an imperative handle onto the canvas: the camera, and `capture()` |
 | `generating`, `merged`, `capturing` | flags the 3D layer reads each frame |
 
@@ -77,9 +77,10 @@ lib/
   poseRetarget.ts   segment vectors <-> bone rotations, and mirroring
   pose.ts           snapshot / restore / rest, and the per-side slots
   jointLimits.ts    anatomical ranges, measured per model, scaled by the dial
-  collision.ts      capsule self-collision
+  collision.ts      capsule self-collision, strength dial
   settle.ts         limits -> collision -> limits; every pose goes through it
-  ikChain.ts        spreads a drag up the chain so a body reacts as a whole
+  ikChain.ts        spreads a drag up the chain so a body reacts as a whole,
+                    strength dial
   grounding.ts      stands the figure on its lowest foot
   anchor.ts         the hips: nothing automatic may rotate them
   timeline.ts       the pose an animation holds at a given time, dials applied

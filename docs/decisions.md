@@ -131,10 +131,35 @@ Three layers, applied by `settlePose` on every write:
    whole figure. The anchor is found through the humanoid rig, not by assuming
    the hips are the root bone — in one test model they are not.
 
-**The joint-limit dial scales layer 1 only.** Collisions are never scaled: a rag
-doll still does not pass through itself. At 0 the limits lift entirely;
+**The joint-limit dial scales layer 1 only.** At 0 the limits lift entirely;
 hyperextension relaxes more slowly than everything else, because that is the one
-that reads as a broken body.
+that reads as a broken body. Collisions have their own dial now (below); by
+default it sits at 1, where a rag doll still does not pass through itself.
+
+## Chain reaction and collision strength are also dials, by request
+
+Both started as hard constants: a drag's pull always reached four joints up the
+chain at a fixed decay, and `resolveCollisions` always corrected a detected
+overlap in full. This reverses the line above for collisions specifically —
+previously written here as "collisions are never scaled" — because the user
+asked for the control, not because the original reasoning (a rag doll should
+not pass through itself) stopped being true at the default.
+
+**Chain reaction** (`lib/ikChain.ts`) scales the per-joint share with
+`(FALLOFF * strength)^i`, `i` counted from the joint attached to the dragged
+handle. `i = 0` always gets `share = 1` regardless of strength (`x^0 = 1` for
+any `x ≥ 0`), which is what lets the handle follow the cursor at all even at
+0% — that joint is the one mechanically attached to what is being dragged, not
+"another limb" reacting to it. Everything above it scales to exactly 0 at
+strength 0. It only affects dragging a joint by hand; the generation pipeline
+never moves a joint this way, so it has no effect on a generated pose.
+
+**Collision strength** (`lib/collision.ts`) scales the correction handed to
+`nudge()`; at 0, `resolveCollisions` returns immediately and reports no hits,
+so the search loops in `refine.ts` that check "did this clear any overlaps"
+still behave sanely. Independent of the joint-limit dial on purpose: a body can
+bend past a normal human range and still not pass through itself, or the
+reverse.
 
 ## Weight comes from the floor, not from a curve
 
