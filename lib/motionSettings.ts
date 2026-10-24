@@ -18,6 +18,13 @@ export interface MotionSettings {
   motionRounds: number;
   /** Candidate poses tried (and ranked together) each round. */
   candidates: number;
+  /**
+   * How many of the nearest library poses Jev is shown for each beat. 0 turns
+   * the library off and goes back to the planner authoring poses outright and
+   * Jev searching for them; above 0, Jev chooses instead of searching and the
+   * pose-refinement rounds do not run.
+   */
+  libraryCandidates: number;
   /** Largest rotation, in degrees, a random nudge may apply to a limb. */
   stepDegrees: number;
   /** How hard the anatomical joint limits bite, 0 (off) to 1 (full). */
@@ -41,6 +48,7 @@ export interface MotionSettings {
 export const ITERATIONS_RANGE = { min: 0, max: 50, default: 10 };
 export const MOTION_ROUNDS_RANGE = { min: 0, max: 12, default: 4 };
 export const CANDIDATES_RANGE = { min: 2, max: 8, default: 4 };
+export const LIBRARY_RANGE = { min: 0, max: 8, default: 5 };
 export const STEP_RANGE = { min: 5, max: 60, default: 20 };
 export const LIMIT_RANGE = { min: 0, max: 1, default: DEFAULT_LIMIT_STRENGTH };
 export const CHAIN_RANGE = { min: 0, max: 1, default: 1 };
@@ -50,6 +58,7 @@ export const DEFAULT_SETTINGS: MotionSettings = {
   iterations: ITERATIONS_RANGE.default,
   motionRounds: MOTION_ROUNDS_RANGE.default,
   candidates: CANDIDATES_RANGE.default,
+  libraryCandidates: LIBRARY_RANGE.default,
   stepDegrees: STEP_RANGE.default,
   limitStrength: LIMIT_RANGE.default,
   chainStrength: CHAIN_RANGE.default,

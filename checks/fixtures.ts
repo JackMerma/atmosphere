@@ -14,6 +14,35 @@ export function shimBrowser() {
   g.self ??= globalThis;
   g.btoa ??= (s: string) => Buffer.from(s, "binary").toString("base64");
   g.atob ??= (s: string) => Buffer.from(s, "base64").toString("binary");
+
+  // A file that embeds its textures sends the loader looking for an <img>.
+  // Nothing here renders, and none of what we read -- skeletons, geometry,
+  // animation tracks -- lives in a texture, so hand it an element-shaped object
+  // rather than letting the loader throw on `document`.
+  //
+  // It has to REPORT the failure, not just sit there: a stub that never fires
+  // either event leaves the loader waiting on a texture forever, and the
+  // process then exits silently with nothing done when the event loop empties.
+  g.document ??= {
+    createElementNS: () => {
+      const listeners: Record<string, ((event: unknown) => void)[]> = {};
+      return {
+        addEventListener(type: string, fn: (event: unknown) => void) {
+          (listeners[type] ??= []).push(fn);
+        },
+        removeEventListener() {},
+        style: {},
+        get src() {
+          return "";
+        },
+        set src(_value: string) {
+          setTimeout(() => {
+            for (const fn of listeners.error ?? []) fn({ type: "error" });
+          }, 0);
+        },
+      };
+    },
+  };
 }
 
 export function readFixture(name: string): ArrayBuffer {

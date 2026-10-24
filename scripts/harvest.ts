@@ -110,6 +110,7 @@ async function harvestFile(file: string): Promise<LibraryPose[]> {
 
       kept.push({
         id: `${file}:${clip.name}:${time.toFixed(2)}`,
+        label: file.replace(/\.[^.]+$/, ""),
         source: `${file} · ${clip.name}`,
         time: Number(time.toFixed(2)),
         segments,

@@ -52,14 +52,20 @@ Ordered by how much it costs the result.
    head stabilisation are formulas, not API calls, and they are most of what
    separates four poses interpolated from something animated. The drag between
    joints is the only part of this that exists.
-4. **Jev has not been shown to improve a POSE.** The pose ranking is monotone by
+4. **The vocabulary is thin where it matters.** 296 poses from 13 animations,
+   but 36% of it is two long clips (Breakdance, Looking Through Files) and there
+   is **no walking animation at all** — Jogging is the nearest thing. A standing
+   target lands 9.3deg away, which is excellent; a jump beat lands 34–43deg,
+   which is the right animation but a loose fit. This is fixed with data, not
+   code: drop more `.fbx` in `poses/` and re-run `npx tsx scripts/harvest.ts`.
+5. **Jev has not been shown to improve a POSE.** The pose ranking is monotone by
    construction, but no with/without comparison has been run. `Pose rounds = 0`
    exists precisely to make that comparison possible. The motion ranking, by
    contrast, has now been shown to move the dials in directions that match the
    known weaknesses — but with four poses to judge, not against a human eye.
-5. **A large FBX freezes the page** for seconds while it parses. Cloning the
+6. **A large FBX freezes the page** for seconds while it parses. Cloning the
    second copy halved it; a worker would fix it properly.
-6. **Depth from photos is unreliable.** MediaPipe's z is noisy, which is what
+7. **Depth from photos is unreliable.** MediaPipe's z is noisy, which is what
    the structured "mirror the limb's depth" candidates exist to repair.
 
 Two things that were on this list are now Jev's problem rather than open

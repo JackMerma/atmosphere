@@ -46,11 +46,29 @@ halves the work.
 
 ### 3. Each authored pose is built, then polished
 
-For each pose in the first half:
+There are two ways a beat becomes a pose, and the **Library poses** slider
+picks between them. Above 0 (the default) Jev chooses one; at 0 it searches for
+one, which is what the app did before a vocabulary existed.
+
+#### Choosing one (`chooseLibraryPose`)
+
+1. **Measure.** Every pose in the vocabulary is scored against the planner's
+   target for this beat — a weighted mean angle over the segments both define,
+   arms and legs above spine and head. Free, instant, no call.
+2. **Shortlist** the nearest, keeping them at least 15° from each other so the
+   options are real alternatives rather than consecutive frames of one clip.
+3. **Ask.** The shortlist is rendered on the real model from six angles and Jev
+   picks one, in a single call. It is free to pass over the numerically nearest,
+   and does: see `decisions.md`.
+
+The library is in world directions and the planner writes in the camera's
+frame, so one is converted into the other before they are ever compared.
+
+#### Searching for one (`refinePose`)
 
 1. **Build it** from the planner's vectors, carrying over the pose before it so
    joints the planner did not mention stay where the motion left them.
-2. **Refine it** (`refinePose`), repeated for as many rounds as the slider says:
+2. **Refine it**, repeated for as many rounds as the slider says:
    - Work out **where to look**. When the planner authored the pose it also gave
      the exact direction every segment should point, so the parts furthest off
      are simply measured. Only a pose taken from a photo has no such target, and

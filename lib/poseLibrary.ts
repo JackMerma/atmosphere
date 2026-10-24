@@ -13,6 +13,13 @@ import type { PoseSegments, Vec3 } from "@/lib/poseRetarget";
 export interface LibraryPose {
   /** Stable identifier, unique across the library. */
   id: string;
+  /**
+   * What the action is called, from the file it was harvested out of.
+   * "Standing Jump", "Jogging". The only human-readable handle a harvested
+   * pose has, and worth keeping: when a choice looks wrong, this is what says
+   * which animation it came out of.
+   */
+  label: string;
   /** Where it came from: the file and clip it was sampled out of. */
   source: string;
   /** Seconds into that clip, which is the only label a harvested pose really has. */
@@ -95,7 +102,19 @@ export interface Match {
 }
 
 /**
- * The `count` library poses closest to `target`, nearest first.
+ * How far apart two shortlisted poses must be, in degrees, to both be worth
+ * showing.
+ *
+ * An animation samples a continuous motion, so the poses nearest a target are
+ * usually consecutive frames of one clip -- measured at 0.40s, 0.48s and 0.56s
+ * of the same file. Asking a judge to choose between near-identical pictures
+ * wastes the one question we get to ask it.
+ */
+const DEFAULT_SPREAD = 15;
+
+/**
+ * The `count` library poses closest to `target`, nearest first, kept distinct
+ * from each other.
  *
  * This is the measured half of the selection. The planner already states the
  * exact direction every segment should point, so narrowing hundreds of poses
@@ -103,16 +122,40 @@ export interface Match {
  * attention measured rather than guessed at (see `docs/decisions.md`). Only the
  * final pick among these is worth a question, because that is the part a number
  * gets wrong: two poses a degree apart on paper can read very differently.
+ *
+ * The nearest pose is always kept. After that a pose has to be `spread` degrees
+ * from everything already shortlisted to earn its place, so the judge is given
+ * real alternatives rather than one pose photographed several times. If too few
+ * qualify, the remaining nearest fill the list rather than returning short.
  */
 export function nearestPoses(
   target: PoseSegments,
   library: LibraryPose[],
-  count: number
+  count: number,
+  spread = DEFAULT_SPREAD
 ): Match[] {
-  return library
+  const ranked = library
     .map((pose) => ({ pose, distance: segmentDistance(pose.segments, target) }))
-    .sort((l, r) => l.distance - r.distance)
-    .slice(0, Math.max(1, count));
+    .sort((l, r) => l.distance - r.distance);
+
+  const wanted = Math.max(1, count);
+  const chosen: Match[] = [];
+  const passed: Match[] = [];
+
+  for (const match of ranked) {
+    if (chosen.length >= wanted) break;
+    const distinct = chosen.every(
+      (taken) => segmentDistance(taken.pose.segments, match.pose.segments) >= spread
+    );
+    if (distinct) chosen.push(match);
+    else passed.push(match);
+  }
+  // Nothing qualified far enough apart; a short list is worse than a close one.
+  for (const match of passed) {
+    if (chosen.length >= wanted) break;
+    chosen.push(match);
+  }
+  return chosen.sort((l, r) => l.distance - r.distance);
 }
 
 /**
@@ -128,4 +171,48 @@ export function canonicalCamera(): THREE.Camera {
   const camera = new THREE.PerspectiveCamera();
   camera.updateMatrixWorld(true);
   return camera;
+}
+
+const right = new THREE.Vector3();
+const up = new THREE.Vector3();
+const back = new THREE.Vector3();
+const world = new THREE.Vector3();
+
+/**
+ * A library pose expressed in a camera's frame.
+ *
+ * The library is harvested through `canonicalCamera`, whose basis is the
+ * identity, so its vectors are world directions. The planner writes its targets
+ * "as seen from the camera" the generation is running with. Comparing the two
+ * without this is comparing different coordinate systems that agree only while
+ * the user has not orbited -- a bug that would look like a merely bad match.
+ */
+export function toCameraFrame(segments: PoseSegments, camera: THREE.Camera): PoseSegments {
+  camera.updateMatrixWorld(true);
+  camera.matrixWorld.extractBasis(right, up, back);
+
+  const out = {} as PoseSegments;
+  for (const key of KEYS) {
+    const v = segments[key];
+    if (!v) continue;
+    world.fromArray(v);
+    out[key] = [world.dot(right), world.dot(up), world.dot(back)];
+  }
+  return out;
+}
+
+/** Fetched once and kept; the file is static and a generation reads it per beat. */
+let pending: Promise<LibraryPose[]> | null = null;
+
+/**
+ * The pose vocabulary, or an empty list when none has been harvested.
+ *
+ * Missing is not an error: the app falls back to the planner authoring poses
+ * outright, which is what it did before a library existed.
+ */
+export function loadLibrary(): Promise<LibraryPose[]> {
+  pending ??= fetch("/poseLibrary.json")
+    .then((res) => (res.ok ? (res.json() as Promise<LibraryPose[]>) : []))
+    .catch(() => []);
+  return pending;
 }

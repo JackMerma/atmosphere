@@ -1,4 +1,11 @@
-import { applySegmentsToRig, measureSegments, mirrorSegments } from "@/lib/poseRetarget";
+import {
+  applySegmentsToRig,
+  measureSegments,
+  mirrorSegments,
+  type PoseSegments,
+} from "@/lib/poseRetarget";
+import { loadLibrary } from "@/lib/poseLibrary";
+import { chooseLibraryPose } from "@/lib/libraryChoice";
 import { bonesOf, poseDistance, restorePose, restQuats, slotQuats, snapshotPose } from "@/lib/pose";
 import { refinePose } from "@/lib/refine";
 import type { MotionSettings } from "@/lib/motionSettings";
@@ -14,7 +21,7 @@ const DEFAULT_DURATION = 2;
 const SAME_POSE_DEGREES = 2;
 
 export interface Progress {
-  phase: "planning" | "refining" | "tuning";
+  phase: "planning" | "choosing" | "refining" | "tuning";
   /** Which pose is being polished, 1-based, and how many there are. */
   keyframe: number;
   keyframeCount: number;
@@ -135,19 +142,31 @@ export async function generateAnimation(
     }
     const plan = await requestPlan(request);
 
+    // With a library, Jev chooses between poses a real person held rather than
+    // searching for one. An empty or missing library is not an error: the app
+    // falls back to the planner authoring poses outright, as it did before.
+    const library = settings.libraryCandidates > 0 ? await loadLibrary() : [];
+    const choosing = library.length > 0;
+
     // In a mirrored cycle only the first half is authored and judged; the rest
     // is its exact left-right reflection, which is what keeps a walk symmetric
     // instead of drifting as each pose is polished on its own.
     const half = plan.mirrorHalf ? plan.keyframes.length / 2 : plan.keyframes.length;
 
     const keyframes: Keyframe[] = [];
+    /** What each beat of the first half actually ended up using, for the mirror. */
+    const used: PoseSegments[] = [];
     let holds = 0;
     let previous = startQuats;
 
     for (let i = 0; i < plan.keyframes.length; i++) {
       const beat = plan.keyframes[i];
       const source = i < half ? beat : plan.keyframes[i - half];
-      const segments = i < half ? beat.segments : mirrorSegments(source.segments);
+      // The mirrored half reflects the pose the first half SETTLED on, not the
+      // one the planner asked for: with a library those are different poses,
+      // and mirroring the request would break the symmetry mirroring exists for.
+      const segments =
+        i < half ? beat.segments : mirrorSegments(used[i - half] ?? source.segments);
       const text = i < half ? beat.text : `${source.text} (mirrored)`;
       const first = i === 0;
       const last = i === plan.keyframes.length - 1;
@@ -165,35 +184,57 @@ export async function generateAnimation(
       let converged = true;
 
       if (!quats) {
-        // Build the pose from the planner's vectors, carrying over the one
-        // before it so unmentioned joints stay where the motion left them.
-        restorePose(bones, previous);
-        applySegmentsToRig(bones, segments, viewport.camera);
-
-        // A mirrored pose is already exact; judging it again would only let it
-        // drift away from the half it is supposed to match.
         if (i >= half) {
+          // A mirrored pose is already exact; judging it again would only let it
+          // drift away from the half it is supposed to match.
+          restorePose(bones, previous);
+          applySegmentsToRig(bones, segments, viewport.camera);
           quats = snapshotPose(bones);
+        } else if (choosing) {
+          onProgress({
+            phase: "choosing",
+            keyframe: i + 1,
+            keyframeCount: plan.keyframes.length,
+            round: 0,
+            rounds: 0,
+            match: null,
+            text,
+          });
+          const chosen = await chooseLibraryPose({
+            side: "initial",
+            target: segments,
+            text,
+            library,
+            candidates: settings.libraryCandidates,
+            previous,
+          });
+          quats = chosen.quats;
+          used[i] = chosen.segments;
         } else {
-        const refined = await refinePose({
-          side: "initial",
-          // The planner's own vectors, so attention is measured rather than guessed.
-          target: { text, segments },
-          settings,
-          onProgress: (p) =>
-            onProgress({
-              phase: "refining",
-              keyframe: i + 1,
-              keyframeCount: plan.keyframes.length,
-              round: p.round,
-              rounds: p.rounds,
-              match: p.match,
-              text,
-            }),
-        });
-        quats = refined.quats;
-        match = refined.match;
-        converged = refined.converged;
+          // Build the pose from the planner's vectors, carrying over the one
+          // before it so unmentioned joints stay where the motion left them.
+          restorePose(bones, previous);
+          applySegmentsToRig(bones, segments, viewport.camera);
+          const refined = await refinePose({
+            side: "initial",
+            // The planner's own vectors, so attention is measured rather than guessed.
+            target: { text, segments },
+            settings,
+            onProgress: (p) =>
+              onProgress({
+                phase: "refining",
+                keyframe: i + 1,
+                keyframeCount: plan.keyframes.length,
+                round: p.round,
+                rounds: p.rounds,
+                match: p.match,
+                text,
+              }),
+          });
+          quats = refined.quats;
+          match = refined.match;
+          converged = refined.converged;
+          used[i] = segments;
         }
       }
 

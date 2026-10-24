@@ -6,6 +6,7 @@ import { createAnimation } from "@/lib/animations";
 import {
   CANDIDATES_RANGE,
   ITERATIONS_RANGE,
+  LIBRARY_RANGE,
   MOTION_ROUNDS_RANGE,
   STEP_RANGE,
 } from "@/lib/motionSettings";
@@ -24,6 +25,10 @@ function overall(progress: Progress | null) {
   if (progress.phase === "tuning") {
     const done = progress.rounds ? progress.round / progress.rounds : 1;
     return REFINE_SHARE + (1 - REFINE_SHARE) * done;
+  }
+  // Choosing has no rounds to count: a beat is one call, done or not.
+  if (progress.phase === "choosing" && progress.keyframeCount > 0) {
+    return ((progress.keyframe - 1) / progress.keyframeCount) * REFINE_SHARE;
   }
   if (progress.phase !== "refining" || progress.keyframeCount === 0) return 0;
   const beat = progress.keyframe - 1 + (progress.rounds ? progress.round / progress.rounds : 0);
@@ -157,12 +162,25 @@ export default function MotionSection() {
           />
           <div className="flex flex-col gap-2 font-mono text-xs uppercase tracking-widest">
             <Slider
+              label="Library poses"
+              value={settings.libraryCandidates}
+              range={LIBRARY_RANGE}
+              disabled={busy}
+              onChange={(libraryCandidates) => setSettings({ ...settings, libraryCandidates })}
+            />
+            <Slider
               label="Pose rounds"
               value={settings.iterations}
               range={ITERATIONS_RANGE}
-              disabled={busy}
+              disabled={busy || settings.libraryCandidates > 0}
               onChange={(iterations) => setSettings({ ...settings, iterations })}
             />
+            {settings.libraryCandidates > 0 && (
+              <p className="normal-case tracking-normal text-foreground/60">
+                Jev chooses between the {settings.libraryCandidates} library poses nearest to each
+                beat, instead of searching for one. Set it to 0 to go back to searching.
+              </p>
+            )}
             <Slider
               label="Motion rounds"
               value={settings.motionRounds}
@@ -195,9 +213,11 @@ export default function MotionSection() {
                   ? progress.text
                   : progress.phase === "tuning"
                     ? `How it moves · round ${progress.round}/${progress.rounds}`
-                    : `Pose ${progress.keyframe}/${progress.keyframeCount} · round ${progress.round}/${progress.rounds} · match ${progress.match?.toFixed(2)}`}
+                    : progress.phase === "choosing"
+                      ? `Choosing pose ${progress.keyframe}/${progress.keyframeCount}`
+                      : `Pose ${progress.keyframe}/${progress.keyframeCount} · round ${progress.round}/${progress.rounds} · match ${progress.match?.toFixed(2)}`}
               </p>
-              {progress.phase === "refining" && (
+              {(progress.phase === "refining" || progress.phase === "choosing") && (
                 <p className="line-clamp-3 normal-case tracking-normal">{progress.text}</p>
               )}
             </div>
@@ -215,9 +235,11 @@ export default function MotionSection() {
               ? `${
                   progress?.phase === "refining"
                     ? "Refining…"
-                    : progress?.phase === "tuning"
-                      ? "Tuning…"
-                      : "Directing…"
+                    : progress?.phase === "choosing"
+                      ? "Choosing…"
+                      : progress?.phase === "tuning"
+                        ? "Tuning…"
+                        : "Directing…"
                 } ${elapsed}s`
               : "Generate"}
           </button>

@@ -19,6 +19,49 @@ round monotone by construction — it can hold, but never make things worse.
 The absolute score survives in `/api/motion/judge`, used twice per pose purely
 to report progress.
 
+## Jev chooses a pose instead of searching for one
+
+**It started as:** the planner wrote 13 direction vectors per beat and Jev
+hill-climbed toward them over ten rounds of candidate poses.
+
+**Why that was weak:** every pose began as an LLM's approximation of a body, and
+the search that was meant to fix it climbs a signal Jev reads badly. `status.md`
+has admitted throughout that the search was never shown to improve a pose.
+
+**Now:** a vocabulary of poses harvested from animation files (`scripts/harvest.ts`)
+and Jev picks one per beat. Every candidate is a pose a real person actually
+held, so the floor is a real body rather than an approximation of one, and
+choosing is a Choice -- the question Jev is good at -- at one call per beat
+instead of ten.
+
+The narrowing is **measured** and the pick is **asked**, the same split already
+settled on for attention. The planner states the exact direction every segment
+should point, so cutting hundreds of poses to a handful costs nothing and asks
+nobody. Only the last step is worth a question.
+
+**And the asking earns its place.** Run against "a standing jump", Jev twice
+passed over the numerically nearest pose to take a further one from the right
+animation: for the crouch it chose Standing Jump at 41.2deg over a 37deg
+alternative, and at the peak it took Standing Jump at 34deg over 32deg and
+33deg. The metric ranks; the judge decides, and it decided better than the
+number did.
+
+The mirrored half reflects the pose the first half **settled on**, not the one
+the planner asked for -- with a library those are different poses, and mirroring
+the request would break the symmetry mirroring exists for.
+
+## A shortlist has to offer real alternatives
+
+An animation samples a continuous motion, so the poses nearest a target are
+usually consecutive frames of one clip: measured at 0.40s, 0.48s and 0.56s of
+the same file. Showing a judge five pictures of one pose wastes the single
+question we get to ask it.
+
+`nearestPoses` now keeps the nearest pose and then requires every later one to
+be 15deg from everything already shortlisted. The same query went from five
+near-identical frames to five poses from three different animations, and the
+jump beats started reliably finding the jump animation.
+
 ## Jev judges the motion, not only the pose
 
 **It started as:** Jev ranking candidate poses, one pose at a time.
