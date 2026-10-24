@@ -12,6 +12,8 @@ export interface Keyframe {
   quats: PoseQuats;
   /** Seconds from the start. Absent on animations saved by the older pipeline. */
   time?: number;
+  /** The figure has its weight on the floor here, rather than being in the air. */
+  grounded?: boolean;
   /** Easing on the way INTO this keyframe. */
   ease?: Ease;
 }

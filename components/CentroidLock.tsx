@@ -11,9 +11,12 @@ const REST_KEY = "restCentroid";
 const current = new THREE.Vector3();
 
 /**
- * Pins each model's centroid to where it stood at rest, every frame, so poses,
- * falls and playback rotate it in place like a mannequin held in mid-air
- * instead of translating it across the stage.
+ * Holds each model over its own spot on the stage, every frame, so swinging a
+ * limb never walks the body sideways.
+ *
+ * Only sideways: height is left alone, because that is what carries the weight
+ * of a pose. A grounded model gets its height from the floor under its feet
+ * (see `groundModel`); anything else keeps the height it already had.
  *
  * Works in the model's PARENT space, so the stage group is free to slide the
  * models around (see StageChoreography) without this fighting it back.
@@ -47,6 +50,8 @@ export default function CentroidLock() {
         model.userData[REST_KEY] = current.clone();
         continue;
       }
+      // Height belongs to the floor, not to this.
+      current.y = rest.y;
       if (current.distanceToSquared(rest) < 1e-10) continue;
 
       model.position.add(rest).sub(current);

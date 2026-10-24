@@ -195,6 +195,7 @@ export async function generateAnimation(
       const time = beat.t * plan.duration + holds;
       keyframes.push({
         pose: text,
+        grounded: beat.grounded,
         match,
         converged,
         quats,
@@ -205,6 +206,7 @@ export async function generateAnimation(
         holds += beat.hold;
         keyframes.push({
           pose: `${text} (held)`,
+          grounded: beat.grounded,
           match,
           converged,
           quats,

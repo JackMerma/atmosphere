@@ -12,6 +12,8 @@ export interface PlannedKeyframe {
   ease: Ease;
   /** Seconds the pose is held once reached (a freeze, an impact). */
   hold: number;
+  /** The figure's weight is on the floor here, rather than being in the air. */
+  grounded: boolean;
   /** Description of the pose, for Jev to judge. */
   text: string;
   segments: PoseSegments;
@@ -58,6 +60,7 @@ Return:
   Each has:
   - "t": when it happens, 0 to 1, strictly increasing. The first is 0 and the last is 1. Space them unevenly: dwell where the action is, rush where it is not.
   - "ease": how the motion accelerates INTO this pose: "in" (starts slow, ends fast: falling, a swing gathering speed), "out" (starts fast, ends slow: a throw settling, an arrival), "inOut" (smooth), "linear" (mechanical, and right for a walk cycle), "overshoot" (passes the pose and springs back: an impact, a catch, a snap).
+  - "grounded": true when at least one foot carries the figure's weight on the floor, false when it is airborne (the peak of a jump, a fall, anything suspended). A walk or a crouch is grounded throughout; a jump is grounded, then not, then grounded again. This is what gives the body weight: a grounded figure is stood on its lowest foot, so bending the legs drops the hips and straightening them lifts the body.
   - "hold": seconds the pose is held once reached, 0 to 1.5. Use it for impacts, freezes and beats of suspension; 0 otherwise, and always 0 in a loop.
   - "text": a COMPLETE, self-contained description of the pose stating what both arms, both legs, the torso and the head are doing. The judge compares this text to a picture of the whole body, so describe the pose, not the action.
   - A direction vector for every body segment, so the pose is exact.
@@ -123,7 +126,7 @@ const RESPONSE_SCHEMA = {
           text: { type: "string" },
           ...Object.fromEntries(SEGMENT_KEYS.map((k) => [k, vec3])),
         },
-        required: ["t", "ease", "hold", "text", ...SEGMENT_KEYS],
+        required: ["t", "ease", "hold", "grounded", "text", ...SEGMENT_KEYS],
       },
     },
   },
@@ -222,6 +225,7 @@ export async function planMotion(
       t: clamp(k.t, 0, 1),
       ease: EASES.includes(k.ease as Ease) ? (k.ease as Ease) : "inOut",
       hold: clamp(typeof k.hold === "number" ? k.hold : 0, 0, 1.5),
+      grounded: k.grounded !== false,
       text: String(k.text ?? ""),
       segments: Object.fromEntries(SEGMENT_KEYS.map((key) => [key, k[key]])) as unknown as PoseSegments,
     });
