@@ -13,6 +13,7 @@ export default function RigViewport() {
   const scene = useAtmosphereStore((s) => s.scene);
   const finalScene = useAtmosphereStore((s) => s.finalScene);
   const isDraggingJoint = useAtmosphereStore((s) => s.isDraggingJoint);
+  const dualState = useAtmosphereStore((s) => s.dualState);
 
   return (
     <div className="fixed inset-0">
@@ -38,15 +39,19 @@ export default function RigViewport() {
           raycast={() => null}
         />
         {/* Each model lives inside a stage group: the group places it on the
-            stage and slides it, while CentroidLock pins the body within it. */}
+            stage and slides it, while CentroidLock pins the body within it. With
+            no final state to pin, the right copy is never mounted: it stays
+            parsed and ready in the store (so turning the toggle on needs no
+            re-upload), just off stage. */}
         <StageChoreography
+          dualState={dualState}
           left={scene && <primitive object={scene} />}
-          right={finalScene && <primitive object={finalScene} />}
+          right={dualState && finalScene && <primitive object={finalScene} />}
         />
         {/* Handles track their bones in world space, so they stay outside the
             stage groups and follow the models wherever those groups slide. */}
         {scene && <JointHandles scene={scene} />}
-        {finalScene && <JointHandles scene={finalScene} />}
+        {dualState && finalScene && <JointHandles scene={finalScene} />}
         {/* Camera orbit stays free; only an active joint drag suspends it,
             so the two gestures (pose a joint vs. look around) never fight. */}
         <OrbitControls makeDefault enabled={!isDraggingJoint} target={[0, 1, 0]} />

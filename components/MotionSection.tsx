@@ -62,6 +62,7 @@ export default function MotionSection() {
   const hasJoints = useAtmosphereStore((s) => s.joints.length > 0);
   const setGenerating = useAtmosphereStore((s) => s.setGenerating);
   const setMerged = useAtmosphereStore((s) => s.setMerged);
+  const dualState = useAtmosphereStore((s) => s.dualState);
   const settings = useAtmosphereStore((s) => s.settings);
   const setSettings = useAtmosphereStore((s) => s.setSettings);
   const [open, setOpen] = useState(false);
@@ -88,10 +89,14 @@ export default function MotionSection() {
     setGenerating(true);
     setProgress(null);
 
-    // The work happens on the single stage model, so bring the pair together
-    // first and let the magnet animation land before it starts.
-    setMerged(true);
-    await new Promise((r) => setTimeout(r, MERGE_SETTLE_MS));
+    // The work happens on the single stage model. With a final state pinned,
+    // bring the pair together first and let the magnet animation land before it
+    // starts; with none, there is nothing on the other side of the stage to
+    // merge with.
+    if (dualState) {
+      setMerged(true);
+      await new Promise((r) => setTimeout(r, MERGE_SETTLE_MS));
+    }
 
     try {
       const result = await generateAnimation(prompt, settings, setProgress);
@@ -180,6 +185,27 @@ export default function MotionSection() {
                 <p className="line-clamp-3 normal-case tracking-normal">{progress.text}</p>
               )}
             </div>
+          )}
+
+          {/* The whole sequence the planner authored, readable, the moment it
+              arrives -- before Jev has chosen a single one of them. */}
+          {progress && progress.planned.length > 0 && (
+            <ol className="flex flex-col gap-1 border border-hairline p-2 font-mono text-xs normal-case tracking-normal">
+              {progress.planned.map((text, i) => {
+                const done = i < progress.keyframe - 1;
+                const current = i === progress.keyframe - 1;
+                return (
+                  <li
+                    key={i}
+                    className={`truncate ${
+                      current ? "text-accent" : done ? "text-foreground/70" : "text-foreground/40"
+                    }`}
+                  >
+                    {done ? "✓" : current ? "→" : i + 1}. {text}
+                  </li>
+                );
+              })}
+            </ol>
           )}
 
           <button

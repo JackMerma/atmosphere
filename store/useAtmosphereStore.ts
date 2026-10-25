@@ -63,6 +63,14 @@ interface AtmosphereState {
   slots: Record<Side, StateSlot>;
   /** Merges into one side's slot, revoking the previous reference photo's URL if it changed. */
   setSlot: (side: Side, patch: Partial<StateSlot>) => void;
+  /**
+   * Off by default: one model on stage, no initial/final labels, the planner
+   * authors every pose with nothing pinned. On: both stage copies show, with
+   * their labels and the magnet transition, and either can be pinned as the
+   * animation's start or end.
+   */
+  dualState: boolean;
+  setDualState: (dualState: boolean) => void;
   animations: Animation[];
   activeAnimationId: string | null;
   playing: boolean;
@@ -104,6 +112,8 @@ export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
   settings: DEFAULT_SETTINGS,
   setSettings: (settings) => set({ settings }),
   slots: { initial: emptySlot(), final: emptySlot() },
+  dualState: false,
+  setDualState: (dualState) => set({ dualState }),
   setSlot: (side, patch) => {
     const previous = get().slots[side];
     if (

@@ -35,8 +35,20 @@ function materialsOf(root: THREE.Object3D) {
  *
  * It owns the stage GROUPS and only ever moves those, never the models
  * themselves, so CentroidLock keeps each body pinned in place inside its group.
+ *
+ * With `dualState` off there is no final state to merge with -- the left group
+ * is simply held centred, and none of the magnet math runs.
  */
-export default function StageChoreography({ left, right }: { left: ReactNode; right: ReactNode }) {
+export default function StageChoreography({
+  left,
+  right,
+  dualState,
+}: {
+  left: ReactNode;
+  right: ReactNode;
+  /** Off: there is no final state to merge with, so the left copy stays centred. */
+  dualState: boolean;
+}) {
   const finalScene = useAtmosphereStore((s) => s.finalScene);
   const leftStage = useRef<THREE.Group>(null);
   const rightStage = useRef<THREE.Group>(null);
@@ -60,6 +72,12 @@ export default function StageChoreography({ left, right }: { left: ReactNode; ri
   }, [materials]);
 
   useFrame((_, delta) => {
+    // No final state in play: the one model just stays centred, every frame.
+    if (!dualState) {
+      if (leftStage.current) leftStage.current.position.x = 0;
+      return;
+    }
+
     const { playing, merged } = useAtmosphereStore.getState();
     const together = playing || merged;
     const target = together ? 1 : 0;
@@ -88,7 +106,7 @@ export default function StageChoreography({ left, right }: { left: ReactNode; ri
 
   return (
     <>
-      <group ref={leftStage} position={[-STAGE_OFFSET, 0, 0]}>
+      <group ref={leftStage} position={dualState ? [-STAGE_OFFSET, 0, 0] : [0, 0, 0]}>
         {left}
       </group>
       <group ref={rightStage} position={[STAGE_OFFSET, 0, 0]}>

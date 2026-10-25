@@ -6,11 +6,16 @@ How the pieces fit together. For what happens during a generation, see
 
 ## The stage
 
-Two copies of the uploaded model stand side by side.
+Two copies of the uploaded model are always parsed, but only shown side by
+side when `dualState` is on (the "Pin initial / final state" checkbox, off by
+default).
 
 - **Left — the initial state.** Also the *stage model*: every animation is
-  built on it and played back on it.
+  built on it and played back on it. Shown, centred, whatever `dualState` is.
 - **Right — the final state.** A reference the user poses; it never animates.
+  Only mounted with `dualState` on — its labelled panel, its joint handles and
+  the magnet transition all gate on the same flag. Parsing it unconditionally
+  means turning the checkbox on needs no re-upload.
 
 The file is parsed once and the second copy is cloned from it
 (`SkeletonUtils.clone`), which halves the page freeze a large FBX causes. The
@@ -29,8 +34,9 @@ fights the code that holds each body in place inside its own group.
 |---|---|
 | `scene` / `finalScene` | the two models |
 | `slots.initial` / `slots.final` | each side's saved pose, its name, and the photo it came from |
+| `dualState` | off by default; whether the final-state copy, its panel and the magnet transition show at all |
 | `animations`, `activeAnimationId`, `playing` | the history and playback |
-| `settings` | refinement limits and the three physics dials (joint limits, chain reaction, collisions) |
+| `settings` | the knockout sliders (ranked poses, options per query, batches) and the three physics dials (joint limits, chain reaction, collisions) |
 | `viewport` | an imperative handle onto the canvas: the camera, and `capture()` |
 | `generating`, `merged`, `capturing` | flags the 3D layer reads each frame |
 
@@ -51,17 +57,22 @@ reload puts the model back at rest.
 that render nothing and only act each frame:
 
 - **`ViewportBridge`** — registers `capture(side, yaw)`, which renders one model
-  alone, framed whole, off-screen, so judging never flickers the page. `yaw`
-  swings the shot around the model without moving the user's camera.
-  `lockFrame` holds that framing still across a run of captures: left to
-  re-centre, a capture subtracts exactly the rise and fall a sheet of frames is
-  meant to show.
+  alone, framed whole, off-screen, so judging never flickers the page, and
+  `captureProxy(segments, yaw, side)`, which poses and photographs the
+  mannequin instead (see "The pose libraries" below) -- this is what a
+  generation actually calls. `yaw` swings the shot around the model without
+  moving the user's camera. `lockFrame`/`clearFrames` hold a capture's framing
+  still across a run of several; currently unused now that nothing judges a
+  sequence of frames, kept because a future judge over several poses at once
+  would need exactly this.
 - **`PlaybackDriver`** — drives the stage model through the active animation,
   by way of `lib/timeline.ts`, which is the same code the offscreen captures a
   judge is shown go through.
 - **`CentroidLock`** — holds each model over its spot on the stage *sideways
   only*. Height belongs to the floor.
 - **`StageChoreography`** — owns the stage groups and the magnet transition.
+  Only runs that when `dualState` is on; off, the one model stays centred and
+  none of the merge math executes.
 
 `JointHandles` draws the draggable orange dots. They sit outside the stage
 groups because they track their bones in world space.
@@ -84,11 +95,11 @@ lib/
   grounding.ts      stands the figure on its lowest foot
   anchor.ts         the hips: nothing automatic may rotate them
   timeline.ts       the pose an animation holds at a given time, dials applied
-  motionParams.ts   the dials: amplitude, drag, bob, arm phase, spacing
-  motionStrip.ts    a whole animation as one numbered sheet of frames
-  tuneMotion.ts     Jev picking between ways of playing the same poses
-  viewAngles.ts     the camera yaws a candidate or a motion is judged from
+  motionParams.ts   the playback dials (amplitude, drag, bob, arm phase,
+                    spacing); fixed at their defaults, nothing searches them
+  viewAngles.ts     the camera yaws a candidate pose is judged from
   poseLibrary.ts    the pose vocabulary: distance between poses, and search
+  libraryChoice.ts  the knockout: Jev picks one pose out of a shortlist
   mannequin.ts      the stand-in body every candidate is photographed on
 ```
 
@@ -143,6 +154,3 @@ Server-side only, so the keys never reach the browser.
 |---|---|---|
 | `POST /api/motion/plan` | OpenAI | author every pose of an action, with timing |
 | `POST /api/motion/rank` | Jev | pick the best of several candidate poses |
-| `POST /api/motion/rank-motion` | Jev | pick the best of several ways of PLAYING one set of poses |
-| `POST /api/motion/judge` | Jev | score one pose, 0–1, for reporting |
-| `POST /api/motion/attention` | Jev | name the body part that looks most wrong |

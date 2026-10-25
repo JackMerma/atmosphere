@@ -62,73 +62,35 @@ be 15deg from everything already shortlisted. The same query went from five
 near-identical frames to five poses from three different animations, and the
 jump beats started reliably finding the jump animation.
 
-## Jev judges the motion, not only the pose
-
-**It started as:** Jev ranking candidate poses, one pose at a time.
-
-**Why that was the wrong axis:** the poses were never what was wrong. A walk
-reads badly because of weight, drag and timing, and a single pose says nothing
-about any of them. The judge was being spent on the one thing that was already
-right, and no amount of polishing four poses turns them into motion.
-
-**Now:** the whole animation is rendered as a sheet of frames in time order and
-ranked as motion. The variants differ only in *how the same poses are played*,
-so the question is about movement and nothing else. The ranking design is
-unchanged — one Choice per round, the incumbent among the options, monotone by
-construction — just lifted a level.
-
-The dials it searches were all constants before, and the honest reason they were
-constants is that nobody knew what to set them to. Asked about "walking" over
-six rounds it widened the arm swing, deepened the drag and pulled the timing
-early, and left amplitude and the bob alone. The arm swing is the weakness the
-planner's system prompt had failed to fix, so this reached something the
-authored-pose path could not.
-
-What it does **not** do is add frames. Four keyframes are still four keyframes,
-and the ceiling in [`status.md`](status.md) is unchanged.
-
-## A sheet of frames, not a row, and the camera must not move
-
-Two things had to be right for a judge that only sees stills to see motion.
-
-**The frame is held still.** A capture normally re-centres on the figure, which
-is right when the question is what pose it is in, and wrong when the question is
-how it moves: re-centring every frame subtracts exactly the rise and fall that
-carries the weight. `lockFrame` widens one frame to hold every pose it will be
-shown and then every shot is taken from the same place. Distance is worked out
-from the corners of that box rather than from the vertices, which frames a
-little wide — the right trade when the vertices of every pose are not all in
-hand at once, since framing wide costs pixels where framing tight clips a limb.
-
-**The frames wrap.** Six frames in a row, which is how an animator pins
-thumbnails up, is an image six times wider than it is tall, and Jev refuses it
-outright: `Invalid image dimensions`. Three across and two down is the same
-sheet, accepted, with the numbers carrying the reading order.
-
-## Candidates are shown from six angles, not two
+## Candidates are shown from four angles, not one
 
 A walk lives on the front-to-back axis. Head-on, that axis is *depth*: a leg
-forward and a leg back look nearly identical. We were asking Jev to judge a
-picture in which the thing that mattered was invisible.
+forward and a leg back look nearly identical, and a crouch can read as
+standing. The pipeline went through three widths here, each settled by running
+it, not by guessing:
 
-The first fix was two views — head-on and 55°, the angle animators check poses
-from — which solved that one axis. It never solved the general case: a limb
-hidden behind the torso from both of those is invisible to the judge however
-wrong it is, and nothing ever showed the body from the side or the back.
+- **Six**, spaced 60° apart, from an earlier design where Jev judged whole
+  motions as sheets of frames rather than choosing single poses from a
+  vocabulary (that layer no longer exists; see the pipeline refactor in the
+  commit history). Caught everything, but a sheet already bundling several
+  time-samples into one image times six angles multiplied straight into a
+  request Jev's own endpoint refused outright — `max_tokens_exceeded` at four
+  candidates × six angles × six frames, 1.7MB.
+- **One**, head-on, when the pipeline was rebuilt around choosing from a
+  vocabulary instead of searching: a reasonable floor to start measuring cost
+  from. Run end to end on "a standing jump", every action pose chose the same
+  generic clip — a crouch and a standing pose look alike from the front, so
+  the measurement said Standing Jump was close but the judge couldn't tell.
+- **Four**, a quarter-turn apart — `[0, 90, 180, 270]`, front/right/back/left —
+  is where it sits now. Confirmed by the same prompt: two of three action
+  poses switched to the correct animation (crouch and landing both picked
+  Standing Jump, at 35.9° and 35.6°) that one angle had missed entirely.
 
-**Now** (`lib/viewAngles.ts`) pose candidates and photo attention are shown
-from six views, spaced 60° apart around the full turn — `[0, 60, 120, 180, 240,
-300]` — which puts every part of the body in profile from at least one of
-them. Verified against the real API: a pose-ranking call at the default
-candidate count runs 0.6–1.3s and 730–950KB, no errors.
-
-**Motion sheets stay at three.** A motion sheet already bundles six time-samples
-into one image; giving it six camera angles too multiplies to a request Jev's
-own endpoint refuses outright — hit for real at four candidates × six angles ×
-six frames = 24 images, 1.7MB, `max_tokens_exceeded`. `MOTION_VIEWS` takes every
-other one of the same six (`[0, 120, 240]`), confirmed to go through at the
-default settings (800–950KB, 0.6–1.3s per call). Still three times the single
-blind axis motion ranking had before.
+Opposite pairs are the point: between 0/180 and 90/270 every limb is seen
+edge-on from one angle and in profile from another, so nothing is invisible
+from all four the way it was from one. Verified against the real API at the
+default settings: 25 rank calls, 0 errors, 185–205KB each, 63s total for a
+5-pose plan (up from 31s at one angle — the direct cost of 4× the images).
 
 ## The planner authors every pose, not just the middle
 
@@ -214,11 +176,10 @@ strength 0. It only affects dragging a joint by hand; the generation pipeline
 never moves a joint this way, so it has no effect on a generated pose.
 
 **Collision strength** (`lib/collision.ts`) scales the correction handed to
-`nudge()`; at 0, `resolveCollisions` returns immediately and reports no hits,
-so the search loops in `refine.ts` that check "did this clear any overlaps"
-still behave sanely. Independent of the joint-limit dial on purpose: a body can
-bend past a normal human range and still not pass through itself, or the
-reverse.
+`nudge()`; at 0, `resolveCollisions` returns immediately and reports no hits, so
+`settlePose`'s own "did this pass clear any overlaps" loop still behaves
+sanely. Independent of the joint-limit dial on purpose: a body can bend past a
+normal human range and still not pass through itself, or the reverse.
 
 ## Weight comes from the floor, not from a curve
 

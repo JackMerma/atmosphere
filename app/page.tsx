@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import ModelUpload from "@/components/ModelUpload";
+import DualStateToggle from "@/components/DualStateToggle";
 import MotionSection from "@/components/MotionSection";
 import PhysicsSection from "@/components/PhysicsSection";
 import StateColumn from "@/components/StateColumn";
@@ -19,6 +20,7 @@ export default function Home() {
   const setModel = useAtmosphereStore((s) => s.setModel);
   const setError = useAtmosphereStore((s) => s.setError);
   const setAnimations = useAtmosphereStore((s) => s.setAnimations);
+  const dualState = useAtmosphereStore((s) => s.dualState);
 
   useEffect(() => {
     (async () => {
@@ -47,6 +49,7 @@ export default function Home() {
         <CornerBrackets />
         <div className="flex flex-col gap-3">
           <ModelUpload />
+          <DualStateToggle />
           <PhysicsSection />
           <MotionSection />
           <AnimationsHistoryPanel />
@@ -54,8 +57,12 @@ export default function Home() {
         </div>
       </div>
       <Toaster />
-      <StateColumn side="initial" />
-      <StateColumn side="final" />
+      {dualState && (
+        <>
+          <StateColumn side="initial" />
+          <StateColumn side="final" />
+        </>
+      )}
     </div>
   );
 }

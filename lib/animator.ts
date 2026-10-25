@@ -19,6 +19,14 @@ export interface Progress {
   keyframe: number;
   keyframeCount: number;
   text: string;
+  /**
+   * Every pose the plan is made of, in playback order, as plain descriptions --
+   * a mirrored pose's own text plus " (mirrored)", matching what the loop below
+   * actually uses rather than the planner's raw (and then-discarded) text for
+   * that half. Empty during "planning"; filled the moment the plan arrives, so
+   * the whole sequence can be shown before any pose is chosen.
+   */
+  planned: string[];
 }
 
 export interface Generated {
@@ -78,6 +86,7 @@ export async function generateAnimation(
       keyframe: 0,
       keyframeCount: 0,
       text: "Working out the poses…",
+      planned: [],
     });
 
     // The planner reasons in segment directions, which only a humanoid rig has.
@@ -110,6 +119,21 @@ export async function generateAnimation(
     // left-right reflection, which is what keeps a walk symmetric.
     const half = plan.mirrorHalf ? plan.keyframes.length / 2 : plan.keyframes.length;
 
+    // Built once, up front, so the whole sequence can be shown before the first
+    // pose is even chosen. Mirrored entries read the FIRST half's text, not
+    // their own: the loop below discards the planner's text for that half the
+    // same way it discards its segments, and this has to match what it does.
+    const planned = plan.keyframes.map((beat, i) =>
+      i < half ? beat.text : `${plan.keyframes[i - half].text} (mirrored)`
+    );
+    onProgress({
+      phase: "choosing",
+      keyframe: 0,
+      keyframeCount: plan.keyframes.length,
+      text: "",
+      planned,
+    });
+
     const keyframes: Keyframe[] = [];
     /** What each pose of the first half ended up as, for the mirror to reflect. */
     const used: PoseSegments[] = [];
@@ -136,6 +160,17 @@ export async function generateAnimation(
             ? endQuats
             : null;
 
+      // One tick per pose, whichever of the three ways below resolves it: the
+      // list in the UI advances uniformly regardless of which path a given
+      // pose took.
+      onProgress({
+        phase: "choosing",
+        keyframe: i + 1,
+        keyframeCount: plan.keyframes.length,
+        text,
+        planned,
+      });
+
       let quats: number[][];
 
       if (pinned) {
@@ -147,12 +182,6 @@ export async function generateAnimation(
         applySegmentsToRig(bones, segments, viewport.camera);
         quats = snapshotPose(bones);
       } else {
-        onProgress({
-          phase: "choosing",
-          keyframe: i + 1,
-          keyframeCount: plan.keyframes.length,
-          text,
-        });
         const chosen = await chooseLibraryPose({
           side: "initial",
           target: segments,
