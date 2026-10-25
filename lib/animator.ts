@@ -31,6 +31,8 @@ export interface Progress {
 }
 
 export interface Generated {
+  /** One or two words the planner named the action, for the saved animation's label. */
+  title: string;
   keyframes: Keyframe[];
   duration: number;
   loop: boolean;
@@ -227,6 +229,7 @@ export async function generateAnimation(
     }
 
     return {
+      title: plan.title,
       keyframes,
       duration: plan.duration + holds,
       loop: plan.loop,

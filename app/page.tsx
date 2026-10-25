@@ -16,6 +16,15 @@ import PlayButton from "@/components/PlayButton";
 import Toaster from "@/components/Toaster";
 import DebugFilmstrip from "@/components/DebugFilmstrip";
 
+/**
+ * Hidden for this version: the whole initial/final workflow (the toggle, the
+ * state panels, the magnet transition) stays in place, unused, rather than
+ * removed. `dualState` defaults to false and nothing else can set it true
+ * without this checkbox, so leaving it unmounted is enough to hide all of it
+ * -- `StateColumn` below is already gated on `dualState`.
+ */
+const SHOW_DUAL_STATE_TOGGLE = false;
+
 export default function Home() {
   const setLoading = useAtmosphereStore((s) => s.setLoading);
   const setModel = useAtmosphereStore((s) => s.setModel);
@@ -46,11 +55,15 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       <RigViewport />
-      <div className="fixed right-6 top-6 z-10 w-80 border border-hairline bg-background p-4">
+      {/* max-h clears the collapsed debug filmstrip's header (fixed to the
+          bottom edge) with room to spare; overflow-y-auto means a tall panel
+          (many sliders, a long animation list) scrolls within itself instead
+          of growing past that limit and under the strip. */}
+      <div className="fixed right-6 top-6 z-10 max-h-[calc(100vh-5.5rem)] w-80 overflow-y-auto border border-hairline bg-background p-4">
         <CornerBrackets />
         <div className="flex flex-col gap-3">
           <ModelUpload />
-          <DualStateToggle />
+          {SHOW_DUAL_STATE_TOGGLE && <DualStateToggle />}
           <PhysicsSection />
           <MotionSection />
           <AnimationsHistoryPanel />

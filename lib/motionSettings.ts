@@ -34,11 +34,11 @@ export interface MotionSettings {
   collisionStrength: number;
 }
 
-export const RANKED_RANGE = { min: 4, max: 50, default: 16 };
+export const RANKED_RANGE = { min: 4, max: 50, default: 25 };
 export const OPTIONS_PER_QUERY_RANGE = { min: 1, max: 4, default: 4 };
-export const BATCHES_RANGE = { min: 1, max: 5, default: 3 };
+export const BATCHES_RANGE = { min: 1, max: 5, default: 5 };
 export const LIMIT_RANGE = { min: 0, max: 1, default: DEFAULT_LIMIT_STRENGTH };
-export const CHAIN_RANGE = { min: 0, max: 1, default: 1 };
+export const CHAIN_RANGE = { min: 0, max: 1, default: 0.05 };
 export const COLLISION_RANGE = { min: 0, max: 1, default: 1 };
 
 export const DEFAULT_SETTINGS: MotionSettings = {

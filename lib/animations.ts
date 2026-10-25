@@ -36,19 +36,25 @@ export interface Animation {
   motion?: MotionParams;
 }
 
-/** Records a finished generation as a new history entry and makes it the active one. */
+/**
+ * Records a finished generation as a new history entry and makes it the
+ * active one. `title` is what the planner named the action; falls back to the
+ * generic "Animation N" when it is empty (an older save, or the planner left
+ * it blank), so the label is never actually missing.
+ */
 export async function createAnimation(
   keyframes: Keyframe[],
   duration: number,
   loop = false,
-  motion: MotionParams = DEFAULT_MOTION
+  motion: MotionParams = DEFAULT_MOTION,
+  title = ""
 ) {
   const { animations, addAnimation } = useAtmosphereStore.getState();
   const index = animations.reduce((max, a) => Math.max(max, a.index), 0) + 1;
   const animation: Animation = {
     id: crypto.randomUUID(),
     index,
-    label: `Animation ${index}`,
+    label: title.trim() || `Animation ${index}`,
     createdAt: Date.now(),
     keyframes,
     duration,

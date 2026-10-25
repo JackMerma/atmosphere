@@ -20,6 +20,8 @@ export interface PlannedKeyframe {
 }
 
 export interface MotionPlan {
+  /** One or two words naming the action, for the saved animation's label. */
+  title: string;
   /** Total seconds for the whole action, excluding holds. */
   duration: number;
   /** A repeating cycle, whose last pose flows back into the first. */
@@ -53,6 +55,7 @@ const REQUEST_TIMEOUT_MS = 90_000;
 const SYSTEM_PROMPT = `You are the director and animator of a rigged humanoid 3D character. Given a plain-language description, you author the COMPLETE set of poses the character must hit to perform it, in order, plus the timing between them. A separate system renders the frames in between and a separate judge then polishes each pose.
 
 Return:
+- "title": one or two words naming the action (e.g. "Standing Jump", "Wave", "Roundhouse Kick"), for the saved animation's label. Title case, no punctuation, never more than two words.
 - "duration": total seconds for the whole action, between 0.8 and 12. Fast, violent actions are short; floaty, graceful or suspended ones are long. A single step of a walk is about 0.5s.
 - "mirrorHalf": true when the second half of the cycle is the exact left-right mirror of the first half (walking, running, marching, climbing), so only the first half needs authoring. False when both halves differ (waving one hand, breathing, a limp). Only meaningful when "loop" is true, and only when you give an even number of poses.
 - "loop": true when the action is a repeating cycle (walking, running, waving, breathing), so the last pose must flow straight back into the first. False for an action with a beginning and an end (a jump, a fall, a throw).
@@ -111,6 +114,7 @@ const RESPONSE_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
+    title: { type: "string" },
     duration: { type: "number" },
     loop: { type: "boolean" },
     mirrorHalf: { type: "boolean" },
@@ -131,7 +135,7 @@ const RESPONSE_SCHEMA = {
       },
     },
   },
-  required: ["duration", "loop", "mirrorHalf", "keyframes"],
+  required: ["title", "duration", "loop", "mirrorHalf", "keyframes"],
 };
 
 function isVec3(v: unknown): v is [number, number, number] {
@@ -241,7 +245,13 @@ export async function planMotion(
   kept[0].t = 0;
   kept[kept.length - 1].t = 1;
 
+  // The prompt asks for two words; this is the safety net, not the rule --
+  // cut to two regardless of what actually came back, so a label that drifts
+  // never grows into a whole sentence.
+  const title = String(raw?.title ?? "").trim().split(/\s+/).slice(0, 2).join(" ");
+
   return {
+    title,
     duration: clamp(typeof raw?.duration === "number" ? raw.duration : 2, 0.8, 12),
     loop: raw?.loop === true,
     // Only usable when the poses actually split into two matching halves.

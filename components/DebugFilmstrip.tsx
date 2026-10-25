@@ -53,7 +53,7 @@ export default function DebugFilmstrip() {
         className="flex w-full items-center justify-between px-4 py-1.5 font-mono text-xs uppercase tracking-widest text-foreground/70 hover:text-foreground"
       >
         <span>
-          Sent to Jev · {frames.length} image{frames.length === 1 ? "" : "s"}
+          Evaluated poses · {frames.length} image{frames.length === 1 ? "" : "s"}
         </span>
         <span aria-hidden className={`transition-transform ${open ? "" : "rotate-180"}`}>
           ▾
@@ -69,11 +69,22 @@ export default function DebugFilmstrip() {
                 key={gi}
                 className={`flex shrink-0 flex-col gap-1 ${newPose && gi > 0 ? "border-l border-hairline pl-3" : ""}`}
               >
-                {newPose && (
-                  <p className="max-w-[50vw] truncate font-mono text-[10px] uppercase tracking-widest text-accent">
-                    {group.poseText}
-                  </p>
-                )}
+                {/* A fixed-height slot on every group, title or not, so the
+                    thumbnail row below always starts at the same y -- a
+                    continuing candidate run has nothing to put here, but it
+                    still reserves the space. The title itself is generous
+                    (700px, well past its own candidate row's ~400px) so a
+                    long description pushes into the room a continuing run
+                    would otherwise leave empty, rather than wrapping tight to
+                    its own thumbnails; still bounded, so it never reaches
+                    into a genuinely different pose's own title. */}
+                <div className="h-4 leading-4">
+                  {newPose && (
+                    <p className="max-w-[700px] truncate font-mono text-[10px] uppercase tracking-widest text-accent">
+                      {group.poseText}
+                    </p>
+                  )}
+                </div>
                 <div className="flex items-center gap-1">
                   <div className="flex gap-1">
                     {group.frames.map((f, fi) => (

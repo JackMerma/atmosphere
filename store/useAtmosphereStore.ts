@@ -71,6 +71,9 @@ interface AtmosphereState {
    */
   dualState: boolean;
   setDualState: (dualState: boolean) => void;
+  /** Which of the collapsible side-panel sections is open; opening one closes the other. */
+  openPanel: "physics" | "motion" | null;
+  setOpenPanel: (panel: "physics" | "motion" | null) => void;
   animations: Animation[];
   activeAnimationId: string | null;
   playing: boolean;
@@ -114,6 +117,8 @@ export const useAtmosphereStore = create<AtmosphereState>((set, get) => ({
   slots: { initial: emptySlot(), final: emptySlot() },
   dualState: false,
   setDualState: (dualState) => set({ dualState }),
+  openPanel: null,
+  setOpenPanel: (openPanel) => set({ openPanel }),
   setSlot: (side, patch) => {
     const previous = get().slots[side];
     if (

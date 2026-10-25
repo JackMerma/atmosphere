@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { CHAIN_RANGE, COLLISION_RANGE, LIMIT_RANGE } from "@/lib/motionSettings";
 import { setLimitStrength } from "@/lib/jointLimits";
 import { setChainStrength } from "@/lib/ikChain";
@@ -52,7 +52,9 @@ function PercentSlider({ label, hint, value, range, onChange }: PercentSliderPro
 export default function PhysicsSection() {
   const settings = useAtmosphereStore((s) => s.settings);
   const setSettings = useAtmosphereStore((s) => s.setSettings);
-  const [open, setOpen] = useState(false);
+  const openPanel = useAtmosphereStore((s) => s.openPanel);
+  const setOpenPanel = useAtmosphereStore((s) => s.setOpenPanel);
+  const open = openPanel === "physics";
 
   useEffect(() => setLimitStrength(settings.limitStrength), [settings.limitStrength]);
   useEffect(() => setChainStrength(settings.chainStrength), [settings.chainStrength]);
@@ -62,7 +64,7 @@ export default function PhysicsSection() {
     <div className="flex flex-col gap-3">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpenPanel(open ? null : "physics")}
         aria-expanded={open}
         data-active={open}
         className="btn flex items-center justify-between px-4 py-2 font-mono text-xs uppercase tracking-widest"

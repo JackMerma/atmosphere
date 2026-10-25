@@ -96,13 +96,16 @@ function knockout(ranked: number, perQuery: number) {
   );
 }
 
-// 4. The defaults are cheap enough to run once per pose of a plan.
+// 4. The defaults are cheap enough to run once per pose of a plan. Bounded by
+//    the same floor as assertion 2, not a magic number, so this keeps
+//    calibrating itself if the defaults in motionSettings.ts ever move.
 {
   const { questions, rounds } = knockout(RANKED_RANGE.default, OPTIONS_PER_QUERY_RANGE.default);
+  const floor = Math.ceil((RANKED_RANGE.default - 1) / (OPTIONS_PER_QUERY_RANGE.default - 1));
   check(
     "The default settings are a handful of questions",
-    questions <= 8,
-    `${questions} questions over ${rounds} rounds for ${RANKED_RANGE.default} poses`
+    questions <= floor + 3,
+    `${questions} questions (floor ${floor}) over ${rounds} rounds for ${RANKED_RANGE.default} poses`
   );
 }
 

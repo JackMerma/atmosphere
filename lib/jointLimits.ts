@@ -39,9 +39,9 @@ const SPECS: Record<Part, Spec> = {
  * Module state rather than store state: `constrainBone` runs inside the render
  * loop and on every bone write, and must not reach into React.
  */
-let strength = 0.7;
+let strength = 0.5;
 
-export const DEFAULT_LIMIT_STRENGTH = 0.7;
+export const DEFAULT_LIMIT_STRENGTH = 0.5;
 
 export function setLimitStrength(value: number) {
   strength = Math.min(1, Math.max(0, value));

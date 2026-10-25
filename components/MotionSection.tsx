@@ -65,7 +65,9 @@ export default function MotionSection() {
   const dualState = useAtmosphereStore((s) => s.dualState);
   const settings = useAtmosphereStore((s) => s.settings);
   const setSettings = useAtmosphereStore((s) => s.setSettings);
-  const [open, setOpen] = useState(false);
+  const openPanel = useAtmosphereStore((s) => s.openPanel);
+  const setOpenPanel = useAtmosphereStore((s) => s.setOpenPanel);
+  const open = openPanel === "motion";
   const [prompt, setPrompt] = useState("");
   const [progress, setProgress] = useState<Progress | null>(null);
   const [busy, setBusy] = useState(false);
@@ -104,7 +106,8 @@ export default function MotionSection() {
         result.keyframes,
         result.duration,
         result.loop,
-        result.motion
+        result.motion,
+        result.title
       );
       toast.success(
         `${animation.label} saved · ${result.duration.toFixed(1)}s · ${result.beats} pose${
@@ -126,7 +129,7 @@ export default function MotionSection() {
       <button
         type="button"
         disabled={!hasJoints}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpenPanel(open ? null : "motion")}
         aria-expanded={open}
         data-active={open}
         className="btn flex items-center justify-between px-4 py-2 font-mono text-xs uppercase tracking-widest"
