@@ -49,6 +49,28 @@ function footingFor(model: THREE.Object3D, bones: THREE.Bone[]) {
 const position = new THREE.Vector3();
 
 /**
+ * How far below the floor the model's lowest foot currently reads, in world
+ * units -- negative means it is reaching above the floor instead of into it.
+ * This is the one measurement `groundModel` is built on; exposed on its own
+ * for callers that need to blend floor contact with something else (an
+ * airborne figure fading between standing and flight, say) rather than apply
+ * it outright.
+ *
+ * Null when the model has no feet to measure from.
+ */
+export function measureDrop(model: THREE.Object3D, bones: THREE.Bone[]): number | null {
+  const footing = footingFor(model, bones);
+  if (!footing) return null;
+
+  model.updateMatrixWorld(true);
+  let lowest = Infinity;
+  for (const { bone, drop } of footing.references) {
+    lowest = Math.min(lowest, bone.getWorldPosition(position).y - drop);
+  }
+  return Number.isFinite(lowest) ? lowest : null;
+}
+
+/**
  * Stands the model on the floor by its lowest foot.
  *
  * This is where a walk gets its weight. Nothing here lifts or drops the hips
@@ -65,15 +87,8 @@ const position = new THREE.Vector3();
  * back to holding it where it was.
  */
 export function groundModel(model: THREE.Object3D, bones: THREE.Bone[], strength = 1): boolean {
-  const footing = footingFor(model, bones);
-  if (!footing) return false;
-
-  model.updateMatrixWorld(true);
-  let lowest = Infinity;
-  for (const { bone, drop } of footing.references) {
-    lowest = Math.min(lowest, bone.getWorldPosition(position).y - drop);
-  }
-  if (!Number.isFinite(lowest)) return false;
+  const lowest = measureDrop(model, bones);
+  if (lowest === null) return false;
 
   // The stage group carries no rotation or scale, so a world drop is a local one.
   model.position.y -= lowest * strength;

@@ -130,8 +130,13 @@ function unifySkeletons(root: THREE.Object3D) {
   }
 }
 
-/** Height every model is scaled to, so one camera framing suits them all. */
-const TARGET_HEIGHT = 2.6;
+/**
+ * Height every model is scaled to, so one camera framing suits them all.
+ * Exported because anything reasoning about real-world scale -- a jump's
+ * height from how long it hangs in the air, say -- needs to know how a world
+ * unit here relates to a metre.
+ */
+export const TARGET_HEIGHT = 2.6;
 
 /**
  * Puts a freshly loaded model on the same footing as every other: scaled to a

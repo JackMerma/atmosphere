@@ -2,9 +2,10 @@ import * as THREE from "three";
 import { ease } from "@/lib/easing";
 import { mapHumanoid } from "@/lib/humanoidRig";
 import { anchorFor } from "@/lib/anchor";
-import { groundModel } from "@/lib/grounding";
+import { measureDrop } from "@/lib/grounding";
 import { settlePose } from "@/lib/settle";
 import { DEFAULT_MOTION, type MotionParams } from "@/lib/motionParams";
+import { TARGET_HEIGHT } from "@/lib/modelLoader";
 import type { Animation } from "@/lib/animations";
 
 /**
@@ -36,14 +37,93 @@ export function cycleLength(animation: Motion) {
   return (animation.duration ?? 0) + hold + back;
 }
 
-/** Whether the figure has its weight on the floor at this point in the animation. */
-export function groundedAt(animation: Motion, time: number) {
-  const frames = animation.keyframes;
-  if (!frames.some((k) => k.grounded !== undefined)) return false;
+/** Which segment of the (non-tail) timeline `time` falls in, and how far across it, 0..1. */
+function segmentAt(frames: Motion["keyframes"], time: number) {
   let i = 0;
-  while (i < frames.length - 1 && time >= (frames[i + 1].time ?? 0)) i++;
-  // Only while both ends of the segment are planted, so a jump leaves the floor.
-  return frames[i].grounded === true && (frames[i + 1]?.grounded ?? frames[i].grounded) === true;
+  while (i < frames.length - 2 && time >= (frames[i + 1].time ?? 0)) i++;
+  const t0 = frames[i].time ?? 0;
+  const t1 = frames[i + 1]?.time ?? t0;
+  const u = t1 > t0 ? Math.min(1, Math.max(0, (time - t0) / (t1 - t0))) : 1;
+  return { i, u };
+}
+
+/**
+ * How much the floor-contact rule should apply right now, 0..1.
+ *
+ * 1 when both ends of the current segment are grounded, 0 when neither is.
+ * Across a segment where one end is grounded and the other is not -- a jump's
+ * takeoff or landing -- it fades using that same segment's own eased progress,
+ * so the figure's weight leaves and returns to the floor at the pose's own
+ * pace rather than snapping the instant a keyframe's flag flips.
+ */
+function groundContribution(animation: Motion, time: number): number {
+  const frames = animation.keyframes;
+  if (!frames.some((k) => k.grounded !== undefined)) return 0;
+  const total = animation.duration ?? 0;
+  if (time >= total) return frames[frames.length - 1].grounded ? 1 : 0;
+
+  const { i, u } = segmentAt(frames, time);
+  const a = frames[i].grounded === true;
+  const b = (frames[i + 1]?.grounded ?? frames[i].grounded) === true;
+  if (a === b) return a ? 1 : 0;
+  const w = ease(frames[i + 1].ease, u);
+  return a ? 1 - w : w;
+}
+
+/**
+ * Real-world gravity, carried into this model's own units through the height
+ * every model is normalised to (`TARGET_HEIGHT`) against an assumed 1.75m
+ * person -- rough, but the figures this produces only have to read as a jump,
+ * not match a motion-capture rig.
+ */
+const GRAVITY_MS2 = 9.8;
+const ASSUMED_PERSON_HEIGHT_M = 1.75;
+const GRAVITY = GRAVITY_MS2 * (TARGET_HEIGHT / ASSUMED_PERSON_HEIGHT_M);
+
+/**
+ * How far to lift the figure off the floor right now, on top of whatever the
+ * floor-contact rule leaves it at. Only visible where `groundContribution` is
+ * under 1 -- `pose()` weights this by `(1 - contact)`, so a fully grounded
+ * instant is unaffected by whatever this returns.
+ *
+ * The window is the nearest surrounding pair of fully grounded keyframes: back
+ * to the last one at or before the current segment, forward to the first one
+ * at or after it. Searched the same way from every segment in between -- the
+ * anticipation into a jump, each airborne keyframe, the settle out of the
+ * landing -- so they all agree on the same window and the arc is one
+ * continuous curve across all of them, not a new one starting fresh at each
+ * keyframe. That continuity is what the check pins: the value either side of
+ * every keyframe boundary inside a jump has to agree.
+ *
+ * The height is not a dial. It falls out of how long that window spans, by the
+ * same physics a real jump obeys: a body launched and landing at the same
+ * height peaks at `g*T^2/8` for a hang time `T`. A longer-held peak already
+ * reads as a bigger jump; this is what makes it rise to match.
+ */
+function airborneLift(animation: Motion, time: number): number {
+  const frames = animation.keyframes;
+  const total = animation.duration ?? 0;
+  if (time >= total) return 0;
+  if (!frames.some((k) => k.grounded === true)) return 0;
+
+  const { i } = segmentAt(frames, time);
+
+  let k = i;
+  while (k > 0 && frames[k].grounded !== true) k--;
+  if (frames[k].grounded !== true) return 0; // never touches ground before this
+
+  let m = i + 1;
+  while (m < frames.length - 1 && frames[m].grounded !== true) m++;
+  if (frames[m].grounded !== true) return 0; // never touches ground after this
+
+  const liftoff = frames[k].time ?? 0;
+  const landing = frames[m].time ?? liftoff;
+  const span = landing - liftoff;
+  if (span <= 0) return 0;
+
+  const u = Math.min(1, Math.max(0, (time - liftoff) / span));
+  const peak = (GRAVITY * span * span) / 8;
+  return peak * Math.sin(Math.PI * u);
 }
 
 /**
@@ -67,11 +147,7 @@ export function sampleTimeline(animation: Motion, time: number, spacing = 1) {
   }
   if (time >= total) return { from: last.quats, to: last.quats, w: 0 };
 
-  let i = 0;
-  while (i < frames.length - 2 && time >= (frames[i + 1].time ?? 0)) i++;
-  const t0 = frames[i].time ?? 0;
-  const t1 = frames[i + 1].time ?? t0;
-  const u = t1 > t0 ? (time - t0) / (t1 - t0) : 1;
+  const { i, u } = segmentAt(frames, time);
   return { from: frames[i].quats, to: frames[i + 1].quats, w: space(ease(frames[i + 1].ease, u)) };
 }
 
@@ -189,7 +265,25 @@ export function timelineFor(
 
       // Standing the figure on its lowest foot is what gives a walk its weight:
       // the legs bend, the body drops, and the hips rise again as they extend.
-      if (params.bob !== 0 && groundedAt(animation, time)) groundModel(model, bones, params.bob);
+      // Airborne, the same dial instead lifts it through the jump's own arc.
+      // One blended target, not a switch between two rules: at full floor
+      // contact this reduces to exactly the old grounded-or-not behaviour
+      // (`desired` collapses to `floorTargetY`), so a fully grounded walk is
+      // completely unaffected.
+      if (params.bob !== 0) {
+        const lowest = measureDrop(model, bones);
+        if (lowest !== null) {
+          const contact = groundContribution(animation, time);
+          const floorTargetY = model.position.y - lowest;
+          const liftY = airborneLift(animation, time);
+          const desired = floorTargetY * contact + liftY * (1 - contact);
+          model.position.y += (desired - model.position.y) * params.bob;
+          model.updateMatrixWorld(true);
+        }
+      }
     },
   };
 }
+
+/** Internals reached by the numeric checks; not part of the module's own surface. */
+export const __testing = { segmentAt, groundContribution, airborneLift };
