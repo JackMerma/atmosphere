@@ -91,15 +91,15 @@ Agreed outcome: no changes requested — the learner confirmed the current build
 
 ## Code Tour and App Map
 
-- [ ] Learning activity complete — guided route, focused alternative, prior practice connected, or brief recap
-- [ ] Optional edit and transfer reflection addressed — offered/declined/already covered/not applicable as appropriate
-- [ ] `devpost/app-map.html` generated from finished code, checked, and shown, including a project-grounded practice to reuse
+- [x] Learning activity complete — guided route, focused alternative, prior practice connected, or brief recap
+- [x] Optional edit and transfer reflection addressed — offered/declined/already covered/not applicable as appropriate
+- [x] `devpost/app-map.html` generated from finished code, checked, and shown, including a project-grounded practice to reuse
 
-Activity and evidence: [what actually happened; real document/test/code references; unfinished work if interrupted]
-Route and stops: [actual paths and symbols; guided stops completed, or reference-only route]
-Edit outcome: [tried/kept/reverted/declined/not applicable; verification if changed]
-Reflection: [offered/answered/declined/already covered — personal answer belongs only in the ignored profile]
-Activity mode: [live app and editor, explicit static fallback, focused alternative, prior practice, or recap]
+Activity and evidence: Focused alternative (learner is an experienced, recently plan-first dev — see `learner-profile.md`). Used a real decision already on record in `docs/decisions.md` ("Jev ranks candidates; it does not score them") — an absolute 0–1 match score sat low and barely moved against the real API, so hill-climbing it was close to random search; switching to a ranking question ("which of these is best") fixed it. Paired with this very session's own parallel case: reopening `scope.md`/`prd.md`/`spec.md`/`checklist.md` when the real, working build no longer matched the planned Jev-convergence mechanism. This largely already happened during the session rather than being staged as a fresh exercise, so it's recorded as an evidence-based recap, not a live interactive tour.
+Route and stops: Reference-only route (not toured live in the editor this session) — `components/MotionSection.tsx` / `lib/animator.ts` (entry) → `lib/plannerClient.ts` + `app/api/motion/plan/route.ts`, then `lib/libraryChoice.ts` + `app/api/motion/rank/route.ts` (logic) → `lib/settle.ts` → `lib/animations.ts`/`lib/db.ts` → `components/PlaybackDriver.tsx` (result). Captured in `devpost/app-map.html`.
+Edit outcome: Not applicable — no code edit was part of this wrap-up; the project's own working code was the evidence used.
+Reflection: Offered in chat ("what would you do differently next time you start a project with an agent?"); the learner moved on without answering — recorded as declined, which the practice guide treats as complete.
+Activity mode: Focused alternative / evidence-based recap, grounded in `docs/decisions.md` and this session's own planning-doc reconciliation.
 
 ## Revisions
 

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atmosphere — App Map</title>
+<style>
+  :root {
+    --bg: #f2eee3; --surface: #faf8f1; --border: #1c1a17; --text: #1c1a17; --text-muted: #6b655c;
+    --accent: #ff4d1a; --accent-soft: #ffe6da;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17151b; --surface: #201d25; --border: #4a4550; --text: #ece9f2; --text-muted: #a69fb3;
+      --accent: #ff6a3d; --accent-soft: #3a2117;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17151b; --surface: #201d25; --border: #4a4550; --text: #ece9f2; --text-muted: #a69fb3;
+    --accent: #ff6a3d; --accent-soft: #3a2117;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Helvetica Neue", Arial, "Segoe UI", sans-serif;
+    line-height: 1.55; padding: 0 16px 64px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  header { padding: 48px 0 16px; border-bottom: 1px solid var(--border); }
+  .eyebrow { text-transform: uppercase; letter-spacing: .14em; font-size: 12px; color: var(--accent); font-weight: 700; font-family: "Courier New", monospace; }
+  h1 { font-size: clamp(28px, 5vw, 40px); margin: 8px 0 4px; text-transform: uppercase; font-weight: 800; letter-spacing: -0.01em; }
+  .tagline { font-size: 15px; color: var(--text-muted); margin: 0 0 8px; max-width: 64ch; }
+  section { margin: 32px 0; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .14em; color: var(--text-muted); margin: 0 0 12px; font-family: "Courier New", monospace; font-weight: 700; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 2px; padding: 20px 22px; }
+  code { background: var(--accent-soft); color: var(--text); padding: 1px 5px; border-radius: 2px; font-size: 0.92em; }
+  .diagram { width: 100%; height: auto; margin: 4px 0; }
+  .diagram text { fill: var(--text); font-size: 12px; font-family: inherit; }
+  .diagram .muted { fill: var(--text-muted); font-size: 10.5px; }
+  .diagram .label { fill: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+  .diagram rect.node { fill: var(--surface); stroke: var(--border); }
+  .diagram rect.extnode { fill: var(--accent-soft); stroke: var(--accent); }
+  .diagram path.arrow { stroke: var(--text-muted); stroke-width: 1.4; fill: none; marker-end: url(#arrowhead); }
+  .route { display: grid; gap: 14px; counter-reset: stop; padding-left: 0; list-style: none; }
+  .route li { display: flex; gap: 12px; align-items: flex-start; }
+  .route li::before {
+    content: counter(stop); counter-increment: stop; flex: none; width: 22px; height: 22px;
+    background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; font-family: "Courier New", monospace;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .route .path { font-family: "Courier New", monospace; font-size: 13px; }
+  details { border: 1px solid var(--border); border-radius: 2px; margin-bottom: 10px; background: var(--surface); }
+  summary { cursor: pointer; padding: 12px 16px; font-weight: 700; font-size: 13.5px; }
+  .details-body { padding: 0 16px 14px; font-size: 14px; }
+  .practice { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 2px; padding: 18px 20px; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 9px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); margin-bottom: 8px; }
+  footer { margin-top: 48px; font-size: 12.5px; color: var(--text-muted); text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">Devpost Learn · App Map</div>
+    <h1>Atmosphere</h1>
+    <p class="tagline">Upload a rigged humanoid 3D model, describe a motion in plain language, and watch an AI pipeline pick real, judged poses from a motion-capture library and animate your model's own joints with them.</p>
+  </header>
+
+  <section>
+    <h2>What the app is made of</h2>
+    <div class="card">
+      <p style="margin:0 0 10px">Three pieces, in order: a <strong>3D viewport</strong> (upload, direct joint dragging, playback, the tracking camera), a <strong>configuration panel</strong> (Physics and Motion dials), and a small <strong>server layer</strong> — two API routes that are the only place the OpenAI and Jev keys ever touch, since everything else runs in the browser.</p>
+      <p style="margin:0">Nothing is generated from a blank page. Every pose that ends up in an animation is a real pose, pulled from a library harvested out of real motion-capture animation files, chosen by an AI judge rather than invented by one.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>One action, traced through the code</h2>
+    <svg class="diagram" viewBox="0 0 740 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram: the user submits a motion prompt, an OpenAI planner writes the poses, they're filtered against the pose library, Jev judges candidates photographed on a mannequin, and the result is saved and played back">
+      <defs>
+        <marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+          <path d="M0,0 L6,3 L0,6 Z" style="fill: var(--text-muted)"/>
+        </marker>
+      </defs>
+
+      <rect class="node" x="10" y="10" width="200" height="60" rx="2"/>
+      <text class="label" x="110" y="30" text-anchor="middle">Entry</text>
+      <text x="110" y="50" text-anchor="middle">MotionSection.tsx</text>
+      <text x="110" y="64" text-anchor="middle" class="muted">prompt + dials -&gt; animator.ts</text>
+
+      <path class="arrow" d="M110,70 V96"/>
+
+      <rect class="extnode" x="10" y="96" width="200" height="56" rx="2"/>
+      <text class="label" x="110" y="114" text-anchor="middle">OpenAI</text>
+      <text x="110" y="134" text-anchor="middle">POST /api/motion/plan</text>
+      <text x="110" y="146" text-anchor="middle" class="muted">title + ordered pose list</text>
+
+      <path class="arrow" d="M210,124 H266"/>
+
+      <rect class="node" x="266" y="96" width="210" height="56" rx="2"/>
+      <text class="label" x="371" y="114" text-anchor="middle">Logic</text>
+      <text x="371" y="134" text-anchor="middle">libraryChoice.ts</text>
+      <text x="371" y="146" text-anchor="middle" class="muted">filters against poseLibrary.json</text>
+
+      <path class="arrow" d="M371,152 V178"/>
+
+      <rect class="extnode" x="266" y="178" width="210" height="56" rx="2"/>
+      <text class="label" x="371" y="196" text-anchor="middle">Jev</text>
+      <text x="371" y="216" text-anchor="middle">POST /api/motion/rank</text>
+      <text x="371" y="228" text-anchor="middle" class="muted">judges 4 angles of the mannequin</text>
+
+      <path class="arrow" d="M476,206 H532"/>
+
+      <rect class="node" x="532" y="178" width="200" height="56" rx="2"/>
+      <text class="label" x="632" y="196" text-anchor="middle">Result</text>
+      <text x="632" y="216" text-anchor="middle">settlePose -&gt; animations.ts</text>
+      <text x="632" y="228" text-anchor="middle" class="muted">saved to IndexedDB</text>
+
+      <path class="arrow" d="M632,234 V260"/>
+
+      <rect class="node" x="532" y="260" width="200" height="34" rx="2"/>
+      <text x="632" y="282" text-anchor="middle">PlaybackDriver + Play</text>
+    </svg>
+  </section>
+
+  <section>
+    <h2>Reference route (not toured live this session)</h2>
+    <div class="card">
+      <ol class="route">
+        <li>
+          <div>
+            <strong>Entry</strong> — <span class="path">components/MotionSection.tsx</span> → <span class="path">lib/animator.ts</span><br>
+            Where the prompt and the three Motion dials live; <code>animator.ts</code> is the function that orchestrates everything below once you press Generate.
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Logic</strong> — <span class="path">lib/plannerClient.ts</span> → <span class="path">app/api/motion/plan/route.ts</span>, then <span class="path">lib/libraryChoice.ts</span> → <span class="path">app/api/motion/rank/route.ts</span><br>
+            The plan comes out of OpenAI; each planned pose is measured against <span class="path">public/poseLibrary.json</span> (296 real poses), and the resulting shortlist is photographed on the mannequin (<span class="path">lib/mannequin.ts</span>) before Jev picks one.
+          </div>
+        </li>
+        <li>
+          <div>
+            <strong>Result</strong> — <span class="path">lib/settle.ts</span> → <span class="path">lib/animations.ts</span> / <span class="path">lib/db.ts</span> → <span class="path">components/PlaybackDriver.tsx</span><br>
+            Every winning pose passes through <code>settlePose</code> (limits + collision) before it's saved; Play walks <span class="path">lib/timeline.ts</span> frame by frame.
+          </div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>To change this, start here</h2>
+    <div class="card">
+      <ul style="margin:0; padding-left:20px">
+        <li>Change how many poses survive the first filter, or how many Jev compares at once → the three Motion dials in <span class="path">components/MotionSection.tsx</span>, read by <span class="path">lib/libraryChoice.ts</span>.</li>
+        <li>Expand which motions work well (today: jumping, sitting, walking) → not code, data: drop more <code>.fbx</code> files into <code>poses/</code> and re-run <code>npx tsx scripts/harvest.ts</code> (see <span class="path">docs/status.md</span>, item 4).</li>
+        <li>Tighten or loosen how "human" a pose looks → the three Physics dials, read by <span class="path">lib/jointLimits.ts</span>, <span class="path">lib/collision.ts</span>, and <span class="path">lib/ikChain.ts</span> inside <span class="path">lib/settle.ts</span>.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>A practice to reuse</h2>
+    <div class="practice">
+      <span class="tag">Real project decision</span>
+      <p style="margin:0 0 10px">The original pipeline asked Jev for a 0–1 number ("how well does this pose match?") and climbed that signal uphill. <code>docs/decisions.md</code> records why that was dropped: the number came back low and barely moved (0.1–0.5 for poses that looked right at a glance) — climbing a signal that flat, with random candidates, is close to random search. The evidence came from running it against the real API, not from suspecting it.</p>
+      <p style="margin:0 0 10px">The fix: instead of asking for a number, ask Jev to <em>choose</em> — "which of these is best," with the current pose as one more option. It's the same question Jev answers well, one call per round instead of one per candidate, and it never makes things worse because the current pose can always win.</p>
+      <p style="margin:0">The practice that repeats throughout this project (and that this very session also lived through, reopening <code>scope.md</code>/<code>prd.md</code>/<code>spec.md</code> once the real, working build no longer matched the planned mechanism): <strong>when real evidence contradicts an assumption — yours or an agent's — you correct the assumption, you don't argue with it.</strong> That applies equally to a call to an external API and to a planning document.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>How to run it again</h2>
+    <div class="card">
+      <p style="margin:0 0 8px"><code>npm install</code>, then <code>npm run dev</code>, open <code>http://localhost:3000</code>. Requires <code>OPENAI_API_KEY</code> and the Jev key in <code>.env.local</code>.</p>
+      <p style="margin:0; color:var(--text-muted); font-size:13px">Map generated against commit <code>b783d1f</code>. It's a snapshot of one moment — the code can move on after this.</p>
+    </div>
+  </section>
+
+  <footer>Atmosphere · devpost/app-map.html</footer>
+</main>
+</body>
+</html>
