@@ -4,6 +4,10 @@ import { useEffect } from "react";
 import * as THREE from "three";
 import { useThree } from "@react-three/fiber";
 import { useAtmosphereStore, type Side } from "@/store/useAtmosphereStore";
+import { loadMannequin, poseMannequin } from "@/lib/mannequin";
+import { applySegmentsToRig, type PoseSegments } from "@/lib/poseRetarget";
+import { collectBones } from "@/lib/boneMath";
+import { resetToRest } from "@/lib/pose";
 
 const CAPTURE_SIZE = 512;
 const FIT_PADDING = 1.1;
@@ -189,23 +193,65 @@ export default function ViewportBridge() {
         const basis = held?.basis ?? frameBasis(camera as THREE.PerspectiveCamera, yaw);
         const extents = held?.extents ?? extentsOf(scene, basis);
         gl.render(threeScene, cameraFor(camera as THREE.PerspectiveCamera, basis, extents));
-        gl.readRenderTargetPixels(target, 0, 0, CAPTURE_SIZE, CAPTURE_SIZE, pixels);
+        return readTarget();
       } finally {
         gl.setRenderTarget(previousTarget);
         hidden.forEach((o) => (o.visible = true));
       }
+    }
 
-      // Pixels come back bottom-up; flip them into an upright image.
+    /** Reads the offscreen target back as an upright JPEG data URL. */
+    function readTarget() {
+      gl.readRenderTargetPixels(target, 0, 0, CAPTURE_SIZE, CAPTURE_SIZE, pixels);
       const image = new ImageData(CAPTURE_SIZE, CAPTURE_SIZE);
       const row = CAPTURE_SIZE * 4;
       for (let y = 0; y < CAPTURE_SIZE; y++) {
-        image.data.set(pixels.subarray((CAPTURE_SIZE - 1 - y) * row, (CAPTURE_SIZE - y) * row), y * row);
+        image.data.set(
+          pixels.subarray((CAPTURE_SIZE - 1 - y) * row, (CAPTURE_SIZE - y) * row),
+          y * row
+        );
       }
       canvas.getContext("2d")!.putImageData(image, 0, 0);
       return canvas.toDataURL("image/jpeg", 0.85);
     }
 
-    setViewport({ camera, capture, lockFrame, clearFrames: () => locked.clear() });
+    /**
+     * Photographs `segments` on the stand-in body rather than on the uploaded
+     * model, in a scene of its own that nothing on screen can see.
+     *
+     * Falls back to the uploaded model when no mannequin has been built, so a
+     * checkout without `public/mannequin.glb` still generates.
+     */
+    async function captureProxy(segments: PoseSegments, yaw = 0, side: Side = "initial") {
+      const mannequin = await loadMannequin();
+      if (!mannequin) {
+        const bones = collectBones(sceneFor(side).scene);
+        resetToRest(bones);
+        applySegmentsToRig(bones, segments, camera);
+        return capture(side, yaw);
+      }
+
+      poseMannequin(mannequin, segments, camera);
+      const basis = frameBasis(camera as THREE.PerspectiveCamera, yaw);
+      const extents = extentsOf(mannequin.model, basis);
+
+      const previousTarget = gl.getRenderTarget();
+      try {
+        gl.setRenderTarget(target);
+        gl.render(mannequin.scene, cameraFor(camera as THREE.PerspectiveCamera, basis, extents));
+        return readTarget();
+      } finally {
+        gl.setRenderTarget(previousTarget);
+      }
+    }
+
+    setViewport({
+      camera,
+      capture,
+      captureProxy,
+      lockFrame,
+      clearFrames: () => locked.clear(),
+    });
     return () => {
       setViewport(null);
       target.dispose();

@@ -89,7 +89,16 @@ lib/
   tuneMotion.ts     Jev picking between ways of playing the same poses
   viewAngles.ts     the camera yaws a candidate or a motion is judged from
   poseLibrary.ts    the pose vocabulary: distance between poses, and search
+  mannequin.ts      the stand-in body every candidate is photographed on
 ```
+
+`scripts/mannequin.ts` strips one of those animation files to a matte, textureless,
+animation-free `.glb` (34MB of FBX down to 4.8MB) and `lib/mannequin.ts` keeps it in
+a scene of its own. **Jev is never shown the uploaded model.** A costume, a
+hairstyle and a texture are noise in a question only ever about where the limbs
+are, and a fixed body makes one run's judgements comparable with another's. The
+pose that wins still plays back on the user's model, because poses travel as
+segment directions and carry no rig with them.
 
 `scripts/harvest.ts` builds that vocabulary out of animation files (a Mixamo
 download is a sequence of poses) into `public/poseLibrary.json`. Only

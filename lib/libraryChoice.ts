@@ -68,7 +68,8 @@ export async function pooled<T>(jobs: (() => Promise<T>)[], limit: number): Prom
  *
  * Every candidate is photographed once, up front, and those images are reused
  * in every round it survives: a pose that wins three rounds is rendered once,
- * not three times.
+ * not three times. The photographs are of a fixed stand-in body, never of the
+ * uploaded model -- see `lib/mannequin.ts` for why.
  */
 export async function chooseLibraryPose(args: {
   side: Side;
@@ -99,17 +100,23 @@ export async function chooseLibraryPose(args: {
   }));
   const shortlist = nearestPoses(target, inFrame, ranked);
 
-  // Build and photograph every candidate once.
+  // Build and photograph every candidate once. The pose that is KEPT is built
+  // on the user's model, carrying over the pose before it so joints this
+  // library pose does not define stay where the motion left them. The pose that
+  // is SHOWN is the same directions on the stand-in body, which is a shape
+  // rather than a costume and so a fairer thing to be asked about.
   const built: Built[] = [];
   for (const { pose, distance } of shortlist) {
-    // From the pose before it, so joints this library pose does not define stay
-    // where the motion left them rather than snapping back to rest.
     restorePose(bones, previous);
     applySegmentsToRig(bones, pose.segments, viewport.camera);
     const quats = snapshotPose(bones);
-    const shots = await Promise.all(JUDGE_VIEWS.map((yaw) => viewport.capture(side, yaw)));
+    const shots = await Promise.all(
+      JUDGE_VIEWS.map((yaw) => viewport.captureProxy(pose.segments, yaw, side))
+    );
     built.push({ pose, distance, segments: pose.segments, quats, shots });
   }
+  // Posing the proxy left the user's model on the last candidate.
+  restorePose(bones, previous);
 
   let round = built;
   let questions = 0;

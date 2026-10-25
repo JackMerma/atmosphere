@@ -5,6 +5,7 @@ devpost/learner-profile.md
 # with `npx tsx scripts/harvest.ts`.
 /poses/
 /public/poseLibrary.json
+/public/mannequin.glb
 .env
 .env.*
 !.env.example

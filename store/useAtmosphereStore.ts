@@ -4,6 +4,7 @@ import { JointInfo } from "@/lib/gltfJoints";
 import type { Animation } from "@/lib/animations";
 import type { PoseLandmark } from "@/lib/poseEstimation";
 import { DEFAULT_SETTINGS, type MotionSettings } from "@/lib/motionSettings";
+import type { PoseSegments } from "@/lib/poseRetarget";
 
 /** The two models on stage: where an animation starts and where it ends. */
 export type Side = "initial" | "final";
@@ -18,6 +19,12 @@ export interface ViewportApi {
    * camera the user is looking through.
    */
   capture: (side?: Side, yaw?: number) => Promise<string>;
+  /**
+   * Photographs a pose on the stand-in body instead of the uploaded model, so
+   * what Jev judges is a shape rather than a costume. Falls back to the
+   * uploaded model when no mannequin has been built.
+   */
+  captureProxy: (segments: PoseSegments, yaw?: number, side?: Side) => Promise<string>;
   /**
    * Holds the framing of later captures still, widening it to fit the pose on
    * screen now. Without it a capture re-centres on the figure, which subtracts

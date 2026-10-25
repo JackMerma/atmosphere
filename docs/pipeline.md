@@ -57,8 +57,9 @@ one, which is what the app did before a vocabulary existed.
    arms and legs above spine and head. Free, instant, no call.
 2. **Shortlist** the nearest, keeping them at least 15° from each other so the
    options are real alternatives rather than consecutive frames of one clip.
-3. **Ask.** The shortlist is rendered on the real model from six angles and Jev
-   picks one, in a single call. It is free to pass over the numerically nearest,
+3. **Ask.** The shortlist is photographed on the **stand-in mannequin**, never
+   on the uploaded model, and Jev picks one. More than it can compare at once
+   is played off in rounds. It is free to pass over the numerically nearest,
    and does: see `decisions.md`.
 
 The library is in world directions and the planner writes in the camera's
