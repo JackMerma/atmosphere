@@ -87,6 +87,21 @@ Ordered by how much it costs the result.
    second copy halved it; a worker would fix it properly.
 7. **Depth from photos is unreliable.** MediaPipe's z is noisy, which is what
    the structured "mirror the limb's depth" candidates exist to repair.
+8. **The Physics/Motion dials aren't self-explanatory.** Six sliders (joint
+   limits, chain reaction, collision, ranked poses, options per query,
+   batches) with no in-app explanation of what moving one actually does to the
+   result — confirmed in a 25 October kick-the-tires pass: a first-time user
+   wouldn't know how to tune them well from the UI alone, even though the
+   shipped defaults already produce a good result.
+9. **More elaborate, "produced" prompts can return an incoherent animation.**
+   Simple single actions (jump, sit, walk) were confirmed to work well in the
+   same pass; a more ambitious, multi-beat prompt is more likely to land on a
+   pose sequence that doesn't read as one coherent motion — consistent with
+   item 4 above (the vocabulary is thin outside a few well-covered actions).
+10. **The UI isn't responsive outside laptop-sized viewports**, and working
+    directly with some 3D models' joints showed real limits during that same
+    pass that weren't fully characterized — worth a closer look if it recurs,
+    but not reproduced in enough detail here to describe precisely.
 
 Two things that were on this list are now Jev's problem rather than open
 questions: the **bob strength** and the **arm swing** are dials it searches, and

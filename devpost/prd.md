@@ -136,6 +136,16 @@ Reference: [heronaiapp.com](https://heronaiapp.com/) — the platform UI identit
 - No user accounts, login, or deployment (scope: `Explicitly Cut`).
 - No support for non-humanoid rigs or formats beyond `.glb` in this version (scope: `The POC Boundary`).
 
+## Known Limitations
+
+Found during a hands-on review of the working build, accepted as-is for this version rather than fixed:
+
+- The Physics and Motion dials aren't self-explanatory — a first-time user wouldn't know how to tune them well without already understanding what each one does.
+- Simple, single actions (jump, sit, walk) produce convincing animations; a more elaborate, multi-beat prompt is more likely to return a pose sequence that doesn't read as coherent motion.
+- The UI isn't responsive outside laptop-sized viewports, and working directly with some 3D models' joints showed limits not yet fully characterized.
+
+See `docs/status.md > What is weak, and known` for the fuller technical picture.
+
 ## Open Questions
 
 - Exact default values for the Physics and Motion dials remain tunable against real generations — not blocking.

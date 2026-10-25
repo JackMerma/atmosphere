@@ -74,11 +74,20 @@ Commit convention: Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, 
 ## Hands-on Checkpoints
 
 - [x] Early usable behavior explored — after Slice 2 (upload, orbit, direct joint drag, and reload persistence all working — enough real product to react to before the AI pipeline is built on top of it)
-- [ ] Final kick-the-tires exploration and feedback completed
+- [x] Final kick-the-tires exploration and feedback completed
 
 ## Final Review
 
-- [ ] Final review complete — feedback resolved and learner confirms ready to ship
+- [x] Final review complete — feedback resolved and learner confirms ready to ship
+
+Mechanical verification before the kick-the-tires session: all numeric checks (`checks/limits.ts`, `physics.ts`, `mirror.ts`, `timeline.ts`, `knockout.ts`, `formats.ts`, `grounding.ts`, `library.ts`, `airborne.ts`) pass against the real fixtures and the real 296-pose library; the app serves and responds at `localhost:3000`.
+
+Learner's kick-the-tires feedback: the system works well end to end and the UI reads well at laptop size; simple actions (jump, sit, walk) produce convincing animations. Three rough edges, all accepted as known limitations rather than fixed now:
+- The Physics/Motion dials are not self-explanatory — a first-time user wouldn't know how to tune them well.
+- More elaborate, "produced" prompts can return an animation that doesn't read as coherent motion; only simple actions were confirmed to work well.
+- The UI isn't responsive outside laptop-sized viewports, and working directly with some 3D models' joints showed limits the learner hadn't fully characterized.
+
+Agreed outcome: no changes requested — the learner confirmed the current build is ready to present as-is, with these points recorded as known limitations (see `docs/status.md > What is weak, and known`, and `prd.md > Known Limitations`) rather than fixed in this pass.
 
 ## Code Tour and App Map
 
