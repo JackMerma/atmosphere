@@ -146,6 +146,73 @@ estimate, a drag, each frame of playback — ends in `settlePose`, which applies
 the joint limits, resolves self-collision, and repeats until the body is clear.
 There is no way to set a pose that skips the physics.
 
+## The control panel and the debug/playback overlays
+
+`app/page.tsx` renders one fixed, top-right panel (`ModelUpload`,
+`PhysicsSection`, `MotionSection`, `AnimationsHistoryPanel`, `PlayButton`) with
+**no scroll mechanism at all** — no `max-height`, no `overflow`. That is a
+deliberate choice, not an oversight: Physics and Motion are an **exclusive
+accordion** (`openPanel` in the store, below — opening one closes the other),
+and the animation list scrolls within its own fixed height, so the panel as a
+whole has no real reason to outgrow the viewport.
+
+- **`openPanel`** (`store/useAtmosphereStore.ts`) replaced each of
+  `PhysicsSection`/`MotionSection`'s own local `useState` — one shared field so
+  opening one collapses the other, instead of both staying open at once.
+- **AI-named titles.** The planner's schema carries a `title` (one or two
+  words), hard-cut to two words regardless of what comes back, used as a saved
+  animation's label (`lib/animations.ts`); empty falls back to "Animation N".
+- **`DebugFilmstrip.tsx`** + **`store/useDebugFilm.ts`** — a live strip along
+  the bottom of the screen of every photograph taken of every judged
+  candidate, grouped by which planner pose a run of images belongs to and then
+  by candidate. Collapsed by default, only mounted when there is something to
+  show, filled in live (pushed the instant a photo is captured, not once the
+  round's Jev call returns). Purely observational debug tooling — nothing in
+  the pipeline reads it back. See `pipeline.md` for where it hooks in.
+
+### The follow-camera mini-view
+
+`FollowCameraView.tsx` draws a small picture-in-picture view, top-right (left
+of the control panel), of a second camera that tracks the stage model's live
+world position every frame — so a jump that carries the figure off-frame in
+the user's own (free-orbit) camera still reads as centred and front-on here.
+Shown only while `playing`.
+
+The technique matters because of a hard constraint: a `THREE.Object3D` has
+exactly one parent, so a second `<Canvas>` mounting the model's `<primitive>`
+a second time would **move** it out of the main view, not duplicate it. The
+actual approach is the standard three.js one for more than one viewport in a
+single canvas — a second `gl.render()` call into a scissored region of the
+*same* framebuffer, with the *same* renderer and the *same* scene, right after
+the main render:
+
+```
+gl.setScissorTest(false); gl.setViewport(0, 0, size.width, size.height);
+gl.render(scene, camera);              // the main view, drawn explicitly
+...
+gl.setScissorTest(true);
+gl.setScissor(x, y, px, px); gl.setViewport(x, y, px, px);
+gl.render(scene, followCamera);        // the mini-view, on top
+```
+
+`useFrame(callback, 1)` — any numeric priority — switches off R3F's own
+automatic render for the *whole* canvas (it always covers the full canvas and
+would otherwise clear this), so the main view has to be rendered explicitly
+here too, first, full-size, every frame.
+
+**`gl.setViewport`/`gl.setScissor` take CSS-pixel values already** — three.js
+multiplies by the renderer's own `_pixelRatio` internally. Pre-multiplying by
+`gl.getPixelRatio()` before calling them double-applies the ratio. That is
+invisible at ratio 1 (1² = 1) and only breaks on a display or monitor whose
+scale factor isn't 1 — exactly the bug reported and fixed on 25 October (see
+`decisions.md`).
+
+`lib/followViewLayout.ts` holds the one rect (`followViewRect()`) both halves
+share: this WebGL render, scissored into it, and `FollowCameraFrame.tsx`, a
+plain non-interactive HTML border drawn over the same pixels so the result
+reads as a framed picture-in-picture rather than an unbordered patch of the
+scene. Both gate on `playing` alone.
+
 ## The API routes
 
 Server-side only, so the keys never reach the browser.

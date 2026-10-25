@@ -209,6 +209,65 @@ FBXLoader rebuilds the whole bone hierarchy once per skinned mesh and nests the
 copies, so a 95-bone rig arrived as **665 bones stacked seven deep**. The copies
 are collapsed and every mesh bound to the outermost skeleton.
 
+## The camera was never actually disabled during generation — the main thread was just blocked
+
+**It looked like:** orbiting the camera while a generation ran did nothing,
+as if `OrbitControls` were gated on `generating`.
+
+**It wasn't.** `enabled={!isDraggingJoint}` has no dependency on `generating`
+at all — confirmed by successfully dragging/orbiting mid-generation once this
+was actually tested in the browser rather than assumed from the code. The real
+cause: `captureProxy` (pose the mannequin, render it, read the pixels back)
+has no true `await` inside once the mannequin is cached, so
+`Promise.all(JUDGE_VIEWS.map(...))` runs all four of a candidate's views as one
+synchronous burst with nothing yielding to the browser in between. Across a
+long shortlist that pins the main thread for stretches long enough that input
+and repaint both stall, which *reads* as the camera being locked.
+
+**Fix:** one `await new Promise(requestAnimationFrame)` after each candidate's
+photography loop in `lib/libraryChoice.ts`, not any change to `enabled`. The
+lesson generalises: a UI control that "isn't responding" during async work is
+not proof that control is gated on that work — check whether the main thread
+is simply busy first.
+
+## `setViewport`/`setScissor` already multiply by the pixel ratio
+
+**It looked like:** the follow-camera mini-view (see `architecture.md`)
+rendered correctly on one monitor and came back completely blank on another,
+for every model, and resizing the window on the working monitor "fixed" it.
+
+**The actual bug:** the mini-view's rect was computed in CSS pixels
+(`followViewRect()`) and then manually multiplied by `gl.getPixelRatio()`
+before being handed to `gl.setViewport`/`gl.setScissor` — but those two
+three.js methods already multiply by the renderer's own `_pixelRatio`
+internally (confirmed by reading `WebGLRenderer.js` directly rather than
+guessing). The manual multiplication squared the ratio. At ratio 1 (1² = 1)
+that is silently correct, which is exactly why it only showed up on a second
+monitor/zoom level with a different scale factor: the doubled ratio pushed the
+whole scissor rect outside the actual framebuffer, so nothing landed in frame
+and the mini-view read as *empty* rather than merely misplaced.
+
+**Fix:** pass the raw CSS-pixel rect straight through; let three.js apply the
+ratio once. Verified in-browser with `devicePixelRatio` forced to 2.5 (the
+machine's own real scaling, not a synthetic value) — no second physical
+monitor was available to confirm against directly, but the fix follows
+directly from three.js's own source, not from guessing at the symptom.
+
+**General lesson for this codebase:** never pre-multiply a CSS-pixel value by
+a pixel ratio before passing it to a three.js API that takes a size or a
+position — check whether that API already does it internally first.
+
+## The debug filmstrip pushes live, and holds nothing back
+
+Every candidate photograph is pushed to `useDebugFilm` the instant it is
+captured, not batched up and shown once a round's Jev call returns — so the
+strip fills in while a generation is still running rather than appearing in
+chunks after the fact. It is cleared once per `generateAnimation` call, not
+once per pose, so a completed run's images stay visible until the next
+Generate rather than disappearing between poses. Deliberately read-only:
+nothing in the pipeline consumes this store back, so it can never change what
+a generation does, only what the user can see of it.
+
 ## Rejected
 
 - **A grid-of-cells attention map** — see above.

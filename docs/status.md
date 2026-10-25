@@ -2,7 +2,11 @@
 
 Where the project stands, honestly. Written to pick the work back up later.
 
-Last worked on: 24 October 2026. Head of `master`: the motion-judging work.
+Last worked on: 25 October 2026. Head of `master`: UI/debug polish on top of
+the motion-judging work — a live debug filmstrip, an exclusive Physics/Motion
+accordion, AI-named animation titles, new default dials, the config panel
+with no scroll, the camera staying responsive during generation, and a
+follow-camera picture-in-picture mini-view during playback.
 
 ## What is verified
 
@@ -35,6 +39,22 @@ passing, plus a run in the browser against two real models.
   over six rounds it widened the arm swing (1.00 -> 1.40), deepened the drag
   (0.03 -> 0.08) and pulled the timing early (spacing 1.00 -> 0.70), leaving
   amplitude and the bob where they were. Playback reads the result.
+- **The debug filmstrip** fills in live during a real generation ("Standing
+  jump", 25 ranked, 4 per query, 5 batches) and groups correctly by pose and
+  candidate; confirmed against a 600-image strip.
+- **The camera stays usable during generation.** `OrbitControls` was never
+  actually gated on `generating` — the apparent lock-up was the main thread
+  being pinned by a synchronous capture burst, fixed with a yield point
+  between candidates; confirmed by orbiting mid-generation.
+- **The follow-camera mini-view** appears only while playing, tracks a real
+  jump's vertical arc (figure stayed centred and front-on here while the main
+  free-orbit camera lost it off-frame), and disappears instantly on Stop.
+  Verified again after a pixel-ratio bug fix, at `devicePixelRatio=2.5` (the
+  test machine's own real scaling) — no second physical monitor was available
+  to confirm the original dual-monitor report against directly.
+- **The config panel has no scroll**, confirmed via its computed
+  `overflow-y: visible` and a `scrollHeight` that already fits its
+  `clientHeight` at a normal viewport size.
 
 ## What is weak, and known
 
@@ -81,6 +101,10 @@ had failed to make.
   untested since the rewrite.
 - The Sketchfab `.zip` path has only been exercised under Node, not through the
   browser upload (the file is larger than the test harness can upload).
+- The follow-camera pixel-ratio fix was confirmed against a real
+  `devicePixelRatio=2.5` on the one development machine, not against an actual
+  second physical monitor — if the dual-monitor report recurs, that is the
+  next thing to check.
 
 ## The road ahead
 

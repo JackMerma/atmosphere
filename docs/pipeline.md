@@ -79,6 +79,20 @@ worth over just measuring. The knockout always lands on exactly one pose; see
 `checks/knockout.ts` for the shape this is pinned to, including the worst-case
 question count for any setting of the three sliders.
 
+Every photograph taken of a candidate is also pushed to `useDebugFilm`
+(`store/useDebugFilm.ts`) the instant it is captured — before that round's Jev
+call even returns — so `components/DebugFilmstrip.tsx` fills in live along the
+bottom of the screen as a generation runs. Cleared once per `generateAnimation`
+call, not per pose, so a run's images stay on screen until the next Generate.
+Purely observational: nothing reads this store back into the pipeline.
+
+Because `captureProxy` (pose the mannequin, render it, read the pixels back)
+has no real `await` inside once the mannequin is cached, `Promise.all` over a
+candidate's four judge views runs as one synchronous burst. One
+`await new Promise(requestAnimationFrame)` after each candidate's photography
+loop yields a frame back to the browser, which is what keeps the camera orbit
+(and input generally) responsive through a long shortlist — see `decisions.md`.
+
 Every pose that comes out of this, chosen or mirrored, goes through
 `settlePose`, so none of them can be an impossible body.
 
@@ -104,17 +118,21 @@ off there is only ever the one model, and none of that runs.
 
 ## What a run costs
 
-For a 5-pose plan at the default settings (16 ranked, 4 per query, 3 batches),
-no pose mirrored:
+For a 5-pose plan at the **current** defaults (25 ranked, 4 per query, 5
+batches), no pose mirrored:
 
 | | Calls |
 |---|---|
 | OpenAI | 1 |
-| Jev (knockout questions) | up to 17 per pose at these defaults |
+| Jev (knockout questions) | up to 9 per pose at these defaults (see
+  `checks/knockout.ts`: "the default settings are a handful of questions") |
 
-Measured against the real API, same prompt, same model: **25 rank calls, 0
-errors, 63s total**, each call 185–205KB and 425–1498ms. Each call carries
-`optionsPerQuery` candidates × 4 views = up to 16 images.
+Measured against the real API at an earlier default (16 ranked, 4 per query, 3
+batches), same prompt, same model: **25 rank calls, 0 errors, 63s total**, each
+call 185–205KB and 425–1498ms. Each call carries `optionsPerQuery` candidates ×
+4 views = up to 16 images. `rankedPoses` moved 16 → 25 afterwards (see
+`decisions.md`'s revision history and `devpost/checklist.md`), which raises the
+per-pose question count but not the shape of the cost model below.
 
 The question count is not linear in `rankedPoses`: a knockout of `n` candidates
 at `optionsPerQuery` per heat takes at least `ceil((n-1)/(optionsPerQuery-1))`
