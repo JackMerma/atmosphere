@@ -8,6 +8,8 @@ import ViewportBridge from "@/components/ViewportBridge";
 import PlaybackDriver from "@/components/PlaybackDriver";
 import CentroidLock from "@/components/CentroidLock";
 import StageChoreography from "@/components/StageChoreography";
+import FollowCameraView from "@/components/FollowCameraView";
+import FollowCameraFrame from "@/components/FollowCameraFrame";
 
 export default function RigViewport() {
   const scene = useAtmosphereStore((s) => s.scene);
@@ -55,7 +57,9 @@ export default function RigViewport() {
         {/* Camera orbit stays free; only an active joint drag suspends it,
             so the two gestures (pose a joint vs. look around) never fight. */}
         <OrbitControls makeDefault enabled={!isDraggingJoint} target={[0, 1, 0]} />
+        <FollowCameraView />
       </Canvas>
+      <FollowCameraFrame />
       {!scene && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <p className="bg-background px-4 py-2 font-mono text-xs uppercase tracking-widest text-foreground/50">
