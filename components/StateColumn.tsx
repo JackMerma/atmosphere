@@ -6,7 +6,6 @@ import CornerBrackets from "@/components/CornerBrackets";
 import { estimatePose } from "@/lib/poseEstimation";
 import { poseModelFrom } from "@/lib/initialPose";
 import { bonesOf, resetToRest, restQuats, snapshotPose } from "@/lib/pose";
-import { refinePose } from "@/lib/refine";
 import { useAtmosphereStore, type PoseReference, type Side } from "@/store/useAtmosphereStore";
 import { toast } from "@/store/useToasts";
 
@@ -56,30 +55,6 @@ function metresPerPixel(ref: PoseReference) {
 }
 
 /** Longest side, in pixels, of a reference photo sent to Jev; it rejects images outside its size range. */
-const JEV_PHOTO_SIDE = 768;
-
-/**
- * Re-encodes the uploaded photo as a JPEG no larger than JEV_PHOTO_SIDE, on a
- * white background (so transparent PNGs stay legible). Whatever the original
- * size or format, Jev always gets a plain, reasonably sized JPEG.
- */
-async function photoForJev(url: string) {
-  const bitmap = await createImageBitmap(await (await fetch(url)).blob());
-  try {
-    const scale = Math.min(1, JEV_PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    return canvas.toDataURL("image/jpeg", 0.88);
-  } finally {
-    bitmap.close();
-  }
-}
-
 /**
  * One column's floating controls, under its model: upload a photo to pose the
  * model from it (with draggable landmarks to correct the estimate), or define
@@ -95,7 +70,6 @@ export default function StateColumn({ side }: { side: Side }) {
   const setSlot = useAtmosphereStore((s) => s.setSlot);
   const busyElsewhere = useAtmosphereStore((s) => s.generating || s.playing);
   const hidden = useAtmosphereStore((s) => s.playing || s.merged);
-  const settings = useAtmosphereStore((s) => s.settings);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [moved, setMoved] = useState(false);
@@ -148,36 +122,6 @@ export default function StateColumn({ side }: { side: Side }) {
     setSlot(side, { quats: null, name: null, reference: null });
   }
 
-  async function refine() {
-    if (!reference) return;
-    setBusy(true);
-    try {
-      const photo = await photoForJev(reference.url);
-      const result = await refinePose({
-        side,
-        target: { reference: photo },
-        settings,
-        onProgress: (p) =>
-          setStatus(`Refining · round ${p.round}/${p.rounds} · match ${p.match.toFixed(2)}`),
-      });
-      setSlot(side, { quats: result.quats, name: `${reference.name} (refined)` });
-      const gain = result.match - result.startMatch;
-      if (gain > 0.001) {
-        toast.success(
-          `Match ${result.startMatch.toFixed(2)} -> ${result.match.toFixed(2)} in ${settings.iterations} rounds`
-        );
-      } else {
-        toast.info(
-          `No improvement found (match ${result.match.toFixed(2)}). Try more rounds or candidates.`
-        );
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Refinement failed.");
-    } finally {
-      setBusy(false);
-      setStatus(null);
-    }
-  }
 
   /** Drag a landmark: move it in the photo, then re-pose the model from the edited set. */
   function moveLandmark(e: React.PointerEvent, i: number) {
@@ -286,12 +230,6 @@ export default function StateColumn({ side }: { side: Side }) {
       >
         Define {side === "initial" ? "Initial" : "Final"} State
       </button>
-      {reference && (
-        <button type="button" onClick={refine} disabled={locked} className={buttonClass}>
-          Refine with Jev
-        </button>
-      )}
-
       {status && (
         <p className="font-mono text-xs uppercase tracking-widest text-foreground/70">{status}</p>
       )}

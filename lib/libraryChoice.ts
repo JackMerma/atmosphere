@@ -24,35 +24,69 @@ export interface Chosen {
   distance: number;
 }
 
+interface Built extends Chosen {
+  /** One image per camera angle, captured once and reused in every round. */
+  shots: string[];
+}
+
+/** Splits a list into chunks of at most `size`, which is one Jev question each. */
+export function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+/** Runs `jobs` with at most `limit` in flight, keeping the results in order. */
+export async function pooled<T>(jobs: (() => Promise<T>)[], limit: number): Promise<T[]> {
+  const results = new Array<T>(jobs.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, jobs.length) }, async () => {
+    for (let i = next++; i < jobs.length; i = next++) results[i] = await jobs[i]();
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 /**
- * Picks the library pose that best answers one beat, and leaves the rig in it.
+ * Picks the library pose that best answers one of the planner's poses, and
+ * leaves the rig in it.
  *
- * This is the whole change of approach: Jev stops searching for a pose and
- * starts choosing between poses a real person already held. Searching asked it
- * to hill-climb on a signal it reads badly, over ten rounds that `status.md`
- * admits were never shown to improve anything. Choosing is a Choice, which is
- * the question it is good at, and it takes one call.
+ * Two steps, and no third. First the whole vocabulary is MEASURED against what
+ * the planner asked for, which costs nothing and asks nobody, and the nearest
+ * `ranked` poses survive. Then Jev is ASKED which of those is right, because
+ * that is the part a number gets wrong: two poses a degree apart on paper can
+ * read very differently on a body.
  *
- * The narrowing is measured and the pick is asked -- the same split `decisions.md`
- * already settled on for attention. The planner states the exact direction every
- * segment should point, so cutting hundreds of poses down to a handful costs
- * nothing and asks nobody. Only the last step is worth a question, because that
- * is the part a number gets wrong: two poses a degree apart on paper can read
- * very differently on a body.
+ * The asking is a knockout. Jev compares `perQuery` poses at a time, so a
+ * shortlist longer than that is played off in rounds -- each question's winner
+ * goes through to the next round until one is left. Questions within a round do
+ * not depend on each other, so `concurrency` of them run at once.
+ *
+ * `perQuery` of 1 means there is nothing to compare, so Jev is not asked at all
+ * and the measured nearest wins outright. That is the honest way to see what
+ * the asking is worth: run the same prompt at 1 and at 4 and look at both.
+ *
+ * Every candidate is photographed once, up front, and those images are reused
+ * in every round it survives: a pose that wins three rounds is rendered once,
+ * not three times.
  */
 export async function chooseLibraryPose(args: {
   side: Side;
-  /** The planner's target for this beat, in the camera's frame. */
+  /** What the planner asked for, in the camera's frame. */
   target: PoseSegments;
-  /** What the beat is, which is what Jev judges against. */
+  /** The description Jev judges the pictures against. */
   text: string;
   library: LibraryPose[];
-  /** How many of the nearest poses Jev is shown. */
-  candidates: number;
+  /** How many of the nearest poses go into the knockout. */
+  ranked: number;
+  /** How many poses Jev compares in one question. */
+  perQuery: number;
+  /** How many questions of a round are asked at once. */
+  concurrency: number;
   /** The pose before this one, carried into joints the library pose leaves out. */
   previous: PoseQuats;
 }): Promise<Chosen> {
-  const { side, target, text, library, candidates, previous } = args;
+  const { side, target, text, library, ranked, perQuery, concurrency, previous } = args;
   const { viewport } = useAtmosphereStore.getState();
   const bones = bonesOf(side);
   if (!viewport || bones.length === 0) throw new Error("Load a model first.");
@@ -60,45 +94,47 @@ export async function chooseLibraryPose(args: {
 
   // The library is in world directions; the planner's target is in the camera's.
   const inFrame = library.map((pose) => ({
-    pose,
+    ...pose,
     segments: toCameraFrame(pose.segments, viewport.camera),
   }));
-  const shortlist = nearestPoses(
-    target,
-    inFrame.map(({ pose, segments }) => ({ ...pose, segments })),
-    candidates
-  );
+  const shortlist = nearestPoses(target, inFrame, ranked);
 
-  const built = shortlist.map(({ pose, distance }) => {
+  // Build and photograph every candidate once.
+  const built: Built[] = [];
+  for (const { pose, distance } of shortlist) {
     // From the pose before it, so joints this library pose does not define stay
     // where the motion left them rather than snapping back to rest.
     restorePose(bones, previous);
     applySegmentsToRig(bones, pose.segments, viewport.camera);
-    return { pose, distance, segments: pose.segments, quats: snapshotPose(bones) };
-  });
-
-  // One option is enough to answer with; there is nothing to choose between.
-  if (built.length === 1) {
-    restorePose(bones, built[0].quats);
-    return built[0];
+    const quats = snapshotPose(bones);
+    const shots = await Promise.all(JUDGE_VIEWS.map((yaw) => viewport.capture(side, yaw)));
+    built.push({ pose, distance, segments: pose.segments, quats, shots });
   }
 
-  const shots: string[][] = [];
-  for (const candidate of built) {
-    restorePose(bones, candidate.quats);
-    shots.push(await Promise.all(JUDGE_VIEWS.map((yaw) => viewport.capture(side, yaw))));
+  let round = built;
+  let questions = 0;
+  // Nothing to choose between: the measurement already answered it.
+  while (perQuery > 1 && round.length > 1) {
+    const heats = chunk(round, perQuery);
+    const winners = await pooled(
+      heats.map((heat) => async () => {
+        // A heat of one has already won it; asking would waste a question.
+        if (heat.length === 1) return heat[0];
+        questions++;
+        return heat[await rank(heat.map((c) => c.shots), text)];
+      }),
+      Math.max(1, concurrency)
+    );
+    // Nothing was eliminated, so no further round can eliminate anything either.
+    if (winners.length === round.length) break;
+    round = winners;
   }
 
-  const winner = built[await rank(shots, text)];
+  const winner = round[0];
   restorePose(bones, winner.quats);
-  // The shortlist is logged, not just the winner: when a choice looks wrong it
-  // matters whether the right pose was never offered (the measured narrowing is
-  // at fault) or was offered and passed over (the judge is).
   console.info(
     `[library] "${text.slice(0, 40)}" -> ${winner.pose.label} @${winner.pose.time}s ` +
-      `(${winner.distance.toFixed(1)}deg) from [` +
-      built.map((c) => `${c.pose.label} ${c.distance.toFixed(0)}deg`).join(", ") +
-      `]`
+      `(${winner.distance.toFixed(1)}deg) from ${built.length} ranked in ${questions} question(s)`
   );
   return winner;
 }

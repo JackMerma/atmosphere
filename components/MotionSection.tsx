@@ -3,36 +3,17 @@
 import { useEffect, useState } from "react";
 import { generateAnimation, type Progress } from "@/lib/animator";
 import { createAnimation } from "@/lib/animations";
-import {
-  CANDIDATES_RANGE,
-  ITERATIONS_RANGE,
-  LIBRARY_RANGE,
-  MOTION_ROUNDS_RANGE,
-  STEP_RANGE,
-} from "@/lib/motionSettings";
+import { BATCHES_RANGE, OPTIONS_PER_QUERY_RANGE, RANKED_RANGE } from "@/lib/motionSettings";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
 import { toast } from "@/store/useToasts";
 
 /** Long enough for the merge animation to land before the first request goes out. */
 const MERGE_SETTLE_MS = 650;
 
-/** How much of the bar polishing the poses takes; the rest is tuning the motion. */
-const REFINE_SHARE = 0.8;
-
-/** Fraction of the whole generation done: beats finished, then the motion rounds. */
+/** Fraction of the whole generation done: poses chosen out of poses planned. */
 function overall(progress: Progress | null) {
-  if (!progress) return 0;
-  if (progress.phase === "tuning") {
-    const done = progress.rounds ? progress.round / progress.rounds : 1;
-    return REFINE_SHARE + (1 - REFINE_SHARE) * done;
-  }
-  // Choosing has no rounds to count: a beat is one call, done or not.
-  if (progress.phase === "choosing" && progress.keyframeCount > 0) {
-    return ((progress.keyframe - 1) / progress.keyframeCount) * REFINE_SHARE;
-  }
-  if (progress.phase !== "refining" || progress.keyframeCount === 0) return 0;
-  const beat = progress.keyframe - 1 + (progress.rounds ? progress.round / progress.rounds : 0);
-  return Math.min(1, beat / progress.keyframeCount) * REFINE_SHARE;
+  if (!progress || progress.phase !== "choosing" || progress.keyframeCount === 0) return 0;
+  return Math.min(1, (progress.keyframe - 1) / progress.keyframeCount);
 }
 
 /** CSS variable the .range track uses to paint its filled portion. */
@@ -41,40 +22,41 @@ const fill = (value: number, range: { min: number; max: number }) =>
 
 interface SliderProps {
   label: string;
-  suffix?: string;
+  hint?: string;
   value: number;
   range: { min: number; max: number };
-  step?: number;
   disabled: boolean;
   onChange: (value: number) => void;
 }
 
-function Slider({ label, suffix = "", value, range, step = 1, disabled, onChange }: SliderProps) {
+function Slider({ label, hint, value, range, disabled, onChange }: SliderProps) {
   return (
-    <label className="flex items-center justify-between gap-3">
-      <span>
+    <label className="flex flex-col gap-1">
+      <span className="flex items-center justify-between gap-3">
         {label} · {value}
-        {suffix}
+        <input
+          type="range"
+          min={range.min}
+          max={range.max}
+          step={1}
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="range w-28"
+          style={fill(value, range)}
+        />
       </span>
-      <input
-        type="range"
-        min={range.min}
-        max={range.max}
-        step={step}
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="range w-28"
-        style={fill(value, range)}
-      />
+      {hint && <span className="normal-case tracking-normal text-foreground/60">{hint}</span>}
     </label>
   );
 }
 
 /**
- * Collapsible Motion controls inside the main panel. Generating builds an
- * animation from the initial state to the final state; the prompt is optional
- * and, when given, lets the planner direct the timing and the beats in between.
+ * Collapsible Motion controls inside the main panel.
+ *
+ * Every animation is directed: the planner authors the poses the action is made
+ * of, and Jev chooses each one out of the harvested vocabulary. A prompt is
+ * required, so Generate stays disabled until there is one.
  */
 export default function MotionSection() {
   const hasJoints = useAtmosphereStore((s) => s.joints.length > 0);
@@ -88,6 +70,8 @@ export default function MotionSection() {
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
 
+  const described = prompt.trim().length > 0;
+
   // A visible clock, so a long step reads as working rather than stuck.
   useEffect(() => {
     if (!busy) return;
@@ -98,18 +82,16 @@ export default function MotionSection() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!described) return;
     setElapsed(0);
     setBusy(true);
     setGenerating(true);
     setProgress(null);
 
-    // A directed run works on the single stage model, so bring the pair together
-    // first and let the magnet animation land before the work starts.
-    const directed = prompt.trim().length > 0;
-    if (directed) {
-      setMerged(true);
-      await new Promise((r) => setTimeout(r, MERGE_SETTLE_MS));
-    }
+    // The work happens on the single stage model, so bring the pair together
+    // first and let the magnet animation land before it starts.
+    setMerged(true);
+    await new Promise((r) => setTimeout(r, MERGE_SETTLE_MS));
 
     try {
       const result = await generateAnimation(prompt, settings, setProgress);
@@ -157,52 +139,33 @@ export default function MotionSection() {
             onChange={(e) => setPrompt(e.target.value)}
             rows={4}
             disabled={busy}
-            placeholder="Optional. Describe an action and the planner authors every pose it needs, with its own timing (e.g. walking, a cartwheel, hit mid-leap and caught in a web). Leave empty to blend the two states directly."
+            placeholder="Describe an action and the planner authors every pose it needs, with its own timing (e.g. walking, a cartwheel, hit mid-leap and caught in a web)."
             className="resize-none border border-hairline bg-transparent p-2 text-sm outline-none focus:border-accent disabled:opacity-50"
           />
           <div className="flex flex-col gap-2 font-mono text-xs uppercase tracking-widest">
             <Slider
-              label="Library poses"
-              value={settings.libraryCandidates}
-              range={LIBRARY_RANGE}
+              label="Ranked poses"
+              hint="How many of the nearest vocabulary poses compete for each pose of the plan. Chosen by measurement, which costs nothing."
+              value={settings.rankedPoses}
+              range={RANKED_RANGE}
               disabled={busy}
-              onChange={(libraryCandidates) => setSettings({ ...settings, libraryCandidates })}
+              onChange={(rankedPoses) => setSettings({ ...settings, rankedPoses })}
             />
             <Slider
-              label="Pose rounds"
-              value={settings.iterations}
-              range={ITERATIONS_RANGE}
-              disabled={busy || settings.libraryCandidates > 0}
-              onChange={(iterations) => setSettings({ ...settings, iterations })}
-            />
-            {settings.libraryCandidates > 0 && (
-              <p className="normal-case tracking-normal text-foreground/60">
-                Jev chooses between the {settings.libraryCandidates} library poses nearest to each
-                beat, instead of searching for one. Set it to 0 to go back to searching.
-              </p>
-            )}
-            <Slider
-              label="Motion rounds"
-              value={settings.motionRounds}
-              range={MOTION_ROUNDS_RANGE}
+              label="Options per query"
+              hint="How many of them Jev compares in one question; the rest are played off in further rounds. At 1 Jev is not asked at all and the measured nearest wins, which is how to see what asking is worth."
+              value={settings.optionsPerQuery}
+              range={OPTIONS_PER_QUERY_RANGE}
               disabled={busy}
-              onChange={(motionRounds) => setSettings({ ...settings, motionRounds })}
+              onChange={(optionsPerQuery) => setSettings({ ...settings, optionsPerQuery })}
             />
             <Slider
-              label="Candidates"
-              value={settings.candidates}
-              range={CANDIDATES_RANGE}
+              label="Batches"
+              hint="How many questions of a round are asked at the same time."
+              value={settings.batches}
+              range={BATCHES_RANGE}
               disabled={busy}
-              onChange={(candidates) => setSettings({ ...settings, candidates })}
-            />
-            <Slider
-              label="Step"
-              suffix="°"
-              value={settings.stepDegrees}
-              range={STEP_RANGE}
-              step={5}
-              disabled={busy}
-              onChange={(stepDegrees) => setSettings({ ...settings, stepDegrees })}
+              onChange={(batches) => setSettings({ ...settings, batches })}
             />
           </div>
 
@@ -211,13 +174,9 @@ export default function MotionSection() {
               <p>
                 {progress.phase === "planning"
                   ? progress.text
-                  : progress.phase === "tuning"
-                    ? `How it moves · round ${progress.round}/${progress.rounds}`
-                    : progress.phase === "choosing"
-                      ? `Choosing pose ${progress.keyframe}/${progress.keyframeCount}`
-                      : `Pose ${progress.keyframe}/${progress.keyframeCount} · round ${progress.round}/${progress.rounds} · match ${progress.match?.toFixed(2)}`}
+                  : `Choosing pose ${progress.keyframe}/${progress.keyframeCount}`}
               </p>
-              {(progress.phase === "refining" || progress.phase === "choosing") && (
+              {progress.phase === "choosing" && (
                 <p className="line-clamp-3 normal-case tracking-normal">{progress.text}</p>
               )}
             </div>
@@ -225,23 +184,17 @@ export default function MotionSection() {
 
           <button
             type="submit"
-            disabled={busy}
+            disabled={busy || !described}
             data-loading={busy}
             aria-busy={busy}
             className="btn flex items-center justify-center gap-2 px-4 py-2 font-mono text-xs uppercase tracking-widest"
           >
             {busy && <span aria-hidden className="spinner" />}
             {busy
-              ? `${
-                  progress?.phase === "refining"
-                    ? "Refining…"
-                    : progress?.phase === "choosing"
-                      ? "Choosing…"
-                      : progress?.phase === "tuning"
-                        ? "Tuning…"
-                        : "Directing…"
-                } ${elapsed}s`
-              : "Generate"}
+              ? `${progress?.phase === "choosing" ? "Choosing…" : "Directing…"} ${elapsed}s`
+              : described
+                ? "Generate"
+                : "Describe a motion first"}
           </button>
           {busy && (
             <div

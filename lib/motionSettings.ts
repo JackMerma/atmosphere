@@ -1,39 +1,28 @@
 import { DEFAULT_LIMIT_STRENGTH } from "@/lib/jointLimits";
 
 /**
- * Limits on how hard the app works at a pose, shared by the Motion panel and
- * every refinement.
+ * What the generation is allowed to spend, and how physical the body is.
  *
- * Kept in its own module because the store holds them and the refinement reads
+ * Kept in its own module because the store holds them and the pipeline reads
  * them: putting them beside either would make the two import each other.
  */
 export interface MotionSettings {
-  /** Refinement rounds per judged pose. */
-  iterations: number;
   /**
-   * Rounds spent tuning how the finished poses are PLAYED, judged as whole
-   * motion rather than pose by pose. 0 plays them exactly as authored, which
-   * is how to see what this is worth.
+   * How many of the nearest vocabulary poses go into the knockout for each
+   * pose of the plan. Measured, free, and drawn from the whole harvested
+   * library -- not a limit on how many poses were harvested.
    */
-  motionRounds: number;
-  /** Candidate poses tried (and ranked together) each round. */
-  candidates: number;
-  /**
-   * How many of the nearest library poses Jev is shown for each beat. 0 turns
-   * the library off and goes back to the planner authoring poses outright and
-   * Jev searching for them; above 0, Jev chooses instead of searching and the
-   * pose-refinement rounds do not run.
-   */
-  libraryCandidates: number;
-  /** Largest rotation, in degrees, a random nudge may apply to a limb. */
-  stepDegrees: number;
+  rankedPoses: number;
+  /** How many poses Jev compares in a single question. */
+  optionsPerQuery: number;
+  /** How many of a round's questions are asked at the same time. */
+  batches: number;
   /** How hard the anatomical joint limits bite, 0 (off) to 1 (full). */
   limitStrength: number;
   /**
    * How far a moved joint is felt by the joints above it, 0 (that joint alone)
    * to 1 (the pull reaches all the way into the shoulder and chest). Governs
-   * dragging a joint by hand; the generation pipeline does not move joints this
-   * way, so it has no effect on a generated pose.
+   * dragging a joint by hand.
    */
   chainStrength: number;
   /**
@@ -45,21 +34,17 @@ export interface MotionSettings {
   collisionStrength: number;
 }
 
-export const ITERATIONS_RANGE = { min: 0, max: 50, default: 10 };
-export const MOTION_ROUNDS_RANGE = { min: 0, max: 12, default: 4 };
-export const CANDIDATES_RANGE = { min: 2, max: 8, default: 4 };
-export const LIBRARY_RANGE = { min: 0, max: 8, default: 5 };
-export const STEP_RANGE = { min: 5, max: 60, default: 20 };
+export const RANKED_RANGE = { min: 4, max: 50, default: 16 };
+export const OPTIONS_PER_QUERY_RANGE = { min: 1, max: 4, default: 4 };
+export const BATCHES_RANGE = { min: 1, max: 5, default: 3 };
 export const LIMIT_RANGE = { min: 0, max: 1, default: DEFAULT_LIMIT_STRENGTH };
 export const CHAIN_RANGE = { min: 0, max: 1, default: 1 };
 export const COLLISION_RANGE = { min: 0, max: 1, default: 1 };
 
 export const DEFAULT_SETTINGS: MotionSettings = {
-  iterations: ITERATIONS_RANGE.default,
-  motionRounds: MOTION_ROUNDS_RANGE.default,
-  candidates: CANDIDATES_RANGE.default,
-  libraryCandidates: LIBRARY_RANGE.default,
-  stepDegrees: STEP_RANGE.default,
+  rankedPoses: RANKED_RANGE.default,
+  optionsPerQuery: OPTIONS_PER_QUERY_RANGE.default,
+  batches: BATCHES_RANGE.default,
   limitStrength: LIMIT_RANGE.default,
   chainStrength: CHAIN_RANGE.default,
   collisionStrength: COLLISION_RANGE.default,
