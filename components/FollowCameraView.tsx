@@ -52,15 +52,20 @@ export default function FollowCameraView() {
     follow.lookAt(worldPos.x, worldPos.y + LOOK_HEIGHT, worldPos.z);
     follow.updateProjectionMatrix();
 
-    // setViewport/setScissor want device pixels (the renderer's own backing
-    // buffer), not the CSS pixels `followViewRect` is expressed in.
-    const ratio = gl.getPixelRatio();
+    // setViewport/setScissor take CSS-pixel-scale values and multiply by the
+    // renderer's own pixel ratio INTERNALLY (see three.js's WebGLRenderer) --
+    // multiplying by it again here would double-apply it. That mistake is
+    // invisible on a 1:1 display (ratio 1, so squaring it changes nothing),
+    // which is exactly why this only showed up on a second monitor with a
+    // different scale: the doubled ratio pushed the whole rect outside the
+    // actual framebuffer, so nothing landed in frame and the mini-view read
+    // as empty rather than merely misplaced.
     const rect = followViewRect();
-    const x = rect.left * ratio;
+    const x = rect.left;
     // WebGL's y is measured from the BOTTOM of the canvas; CSS measures from
     // the top, so the rect's top-based y has to be flipped.
-    const y = (size.height - rect.top - rect.size) * ratio;
-    const px = rect.size * ratio;
+    const y = size.height - rect.top - rect.size;
+    const px = rect.size;
 
     gl.setScissorTest(true);
     gl.setScissor(x, y, px, px);
