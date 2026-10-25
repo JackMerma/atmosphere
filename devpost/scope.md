@@ -5,52 +5,60 @@ status: approved
 
 # Atmosphere
 
-**Atmosphere anything.** An AI tool that brings an already-rigged 3D model to life: upload it, describe a motion in plain language, and AI figures out how to move its existing joints, pose by pose — no keyframing, no animation software.
+**Atmosphere anything.** An AI tool that brings an already-rigged 3D model to life: upload a rigged humanoid model, describe a motion in plain language, and the app assembles an animation out of real motion-captured poses — chosen and judged by AI — instead of keyframing or inventing a pose from scratch.
 
 ## The Unique Kernel
-Every rigged 3D model already carries its own "controlled environment" — a skeleton someone else already built. Atmosphere doesn't need to build or dress anything; it just has to read whatever joints a model actually has and decide how to move them to match a described pose — iteratively, by showing the AI (Jev) the current pose and asking what to adjust next, the same way you'd nudge a puppet closer to a shape. That mechanism doesn't care whether the skeleton belongs to a person, an animal, or an object, so "atmosphere anything" is really just "upload a rigged model" — not a roadmap promise, a direct consequence of how the kernel works.
+An LLM plans a titled, ordered sequence of poses from the prompt — each with per-limb target directions, an importance weight per limb, and a natural-language description. Each planned pose is matched against a library of 200+ real poses harvested from Mixamo animations, filtered down to the closest ranked candidates using the LLM's own weights. The shortlisted candidates are posed on a stand-in mannequin (never the user's own model) and photographed from four angles — front, back, left, right — and Jev judges the photos and picks the winner for each planned pose. The winning real poses assemble into the animation and play on the user's own uploaded model, under real anatomical joint limits and self-collision.
+
+Real motion, chosen by AI judgment, driving a real model's real joints — not an AI inventing a pose from nothing.
+
+The "atmosphere anything" lema is the sales pitch — the ambition the learner wants Atmosphere to carry. This version's actual, demoed scope is narrower: humanoid rigged models only. The pose library and the anatomical limits assume a humanoid rig.
 
 ## Who It's For
-Designers, hackathon shippers, and indie devs (the learner is the first user) who already have — or can grab for free, e.g. from Mixamo's rigged character library — a rigged 3D model, and want to animate it by describing what should happen instead of hand-keying every joint in a 3D tool they don't know.
+Designers, hackathon shippers, and indie devs (the learner is the first user) who already have — or can grab for free, e.g. from Mixamo's rigged character library — a rigged humanoid 3D model, and want to animate it by describing what should happen instead of hand-keying every joint in a 3D tool they don't know.
 
 ## The Core Loop
-Upload a pre-rigged 3D model (glTF/GLB) → the app reads its skeleton and maps every joint it can move → explore those joints by hand (Lock toggle: off rotates the whole model to inspect it, on lets you drag individual joints, highlighted on hover) → write a motion prompt describing a sequence of poses → Jev converges on each pose iteratively — sees the current pose, decides the next single adjustment, repeats up to a capped number of times — → the result saves into an animation history, replayable and regenerable → press Play to watch it loop.
+Upload a rigged humanoid 3D model (`.glb`) → the app reads its skeleton and maps every joint → drag any joint directly to confirm the rig responds (always available, just to verify what exists, not to animate) → open the config panel and set Physics (joint-limit strength, chain-reaction/IK strength, self-collision strength) and Motion (ranked poses, options per query, batches) → write a motion prompt → an LLM plans a titled (max two words), ordered list of poses for it → each planned pose is matched against the 200+-pose Mixamo library, filtered to the closest ranked candidates by the LLM's own weights → the candidates are posed on a stand-in mannequin, photographed from four angles, and judged by Jev, which picks the winner per pose → the winning poses assemble into the titled animation, saved to history → press Play: the animation loops on your own model, with a follow-camera "spy" view tracking its movement as it plays.
 
 ## Inspiration & Identity
 - Higgsfield's "Layers" feature — an animated falling figure that sparked the whole idea.
 - The broader trend: ambient, animated "atmospheres" showing up in more and more web hero sections and product sites — Atmosphere wants to make that intelligent and generalizable instead of bespoke per project.
 - [heronaiapp.com](https://heronaiapp.com/) — platform UI identity: warm cream background, bold condensed uppercase type, one accent color, hairline borders with technical corner-bracket accents, fine hatched line-art illustration. Full detail in `prd.md > Look and Feel`.
-- The uploaded model's own appearance (materials, textures, style) is whatever the model itself carries — Atmosphere no longer renders its own geometry, so it doesn't impose a visual style on the subject, only on the surrounding UI.
+- The uploaded model's own appearance (materials, textures, style) is whatever the model itself carries — Atmosphere doesn't impose a visual style on the subject, only on the surrounding UI. The stand-in mannequin Jev judges poses on is never shown to the user — it exists only so every judgment happens on a neutral, comparable body.
 
 ## Why This Matters to the Learner
-Self-described as someone who cares more about a product's presentation, mood, and "sellability" than its backend — this project is a direct expression of that, and "atmosphere anything" is the ambition they want it to carry. Built partly to learn Jev hands-on (the project's technical center of gravity after this pivot), partly as a hackathon entry, and partly as a reusable personal tool: a fast, cheap way to animate 3D assets for future hackathons and projects.
+Self-described as someone who cares more about a product's presentation, mood, and "sellability" than its backend — this project is a direct expression of that, and "atmosphere anything" is the ambition they want it to carry. Built partly to learn Jev hands-on as the judgment layer of a multi-stage AI pipeline (LLM planning, a real motion-capture library, Jev judging), partly as a hackathon entry, and partly as a reusable personal tool: a fast, cheap way to animate 3D assets for future hackathons and projects.
 
 ## What "Working" Looks Like
-Screen by screen: open the app → the dashboard asks to upload a rigged 3D model → upload a `.glb` file → the model appears, standing in its default pose, with its joints mapped → drag a few joints with Lock on, rotate the whole model with Lock off, to confirm it responds → write a prompt like "raise the right arm, then crouch down" → watch Jev converge on each pose, iteration by iteration → the result saves to the animation history → press Play, watch it loop. The "oh, that's cool" beat is watching an inert, downloaded 3D model come alive and perform a described motion with zero manual keyframing — pure language-to-motion.
+Screen by screen: open the app → upload a rigged humanoid `.glb` → the model appears, standing in its default pose, with its joints mapped and directly draggable → drag a joint to confirm the rig actually responds → open the config panel, set Physics and Motion settings → write a prompt like "jump" or "walk" → watch the AI title and plan the pose sequence, match it against the real Mixamo pose library, and have Jev judge the candidates on a stand-in mannequin → the result saves to the animation history under its own AI-given title → press Play, watch it loop with a follow-camera spy view tracking the model as it moves. The "oh, that's cool" beat: real motion-captured poses, intelligently selected and judged by AI, driving your own uploaded model's real joints under real physical limits — zero manual keyframing, zero invented-from-scratch poses.
 
 ## The POC Boundary
 - Single dashboard screen — no prototype-type selector, no separate reference/working model pair.
-- Upload of a pre-rigged 3D model file (glTF/GLB) — the model must already have a skeleton; Atmosphere does not rig unrigged models in this version.
+- Upload of a rigged humanoid 3D model, `.glb` only — the model must already have a skeleton.
 - Automatic parsing and mapping of the uploaded model's existing skeleton/joints.
-- Manual exploration: Lock toggle — off rotates the whole model; on highlights a mapped joint on hover and lets you drag it individually.
-- Motion agent: a prompt describing a sequence of poses → Jev convergence loop per state (Noul to check match against a rendered view of the current pose, Choice to pick the next single joint adjustment from the model's actual joint list) → capped at 10 iterations per pose by default (adjustable) → smooth interpolation between the converged poses.
-- Animations history: numbered entries, unlimited regeneration, independently selectable, persisted across page reloads.
-- Play button: loops the currently selected animation.
-- Works generically for any uploaded subject — human, animal, object — no special-casing by type.
+- Direct manual joint manipulation — every joint is always visible and draggable — so the user can confirm which joints exist and see the rig respond. Verification, not animation.
+- Config panel: Physics (joint-limit strength, chain-reaction/IK strength, self-collision strength) and Motion (ranked-poses count, options per query, batch count), feeding the generation pipeline below.
+- Motion agent: prompt → an LLM plans a titled (max two words), ordered list of poses — each with per-limb target directions, an importance weight per limb, and a natural-language description — → each planned pose is matched against a library of 200+ real poses from Mixamo animations, filtered to the closest ranked candidates using the LLM's weights → each candidate is posed on a stand-in mannequin (never the uploaded model) and photographed from four angles (front, back, left, right) → Jev judges the photos and picks the winner per pose → the winning real poses assemble into the animation, applied to the user's own model under real anatomical joint limits and self-collision.
+- Animations history: AI-titled entries, unlimited regeneration, independently selectable, persisted across page reloads.
+- Play button: loops the currently selected animation, with a follow-camera spy view tracking the model's live position during playback.
+- Humanoid rigs only.
 - No login, no deployment.
 
 ## Later
-- Auto-rigging support for uploaded models that aren't already rigged (e.g. a Mixamo-style auto-rigger integrated into the app).
-- Re-texturing or applying custom materials/"layers" to an uploaded model — the original photo-driven appearance idea, reframed as a styling feature on top of an existing rig rather than the whole kernel.
-- Support for 3D file formats beyond glTF/GLB.
+- Generalizing beyond humanoid rigs to any subject (animal, object) — the "atmosphere anything" vision.
+- Auto-rigging support for uploaded models that aren't already rigged.
+- Support for 3D file formats beyond `.glb`.
+- Growing the Mixamo pose library for more precision (today's known weak spot: thin coverage for some motions, e.g. no dedicated walking clip).
+- Re-texturing or applying custom materials/"layers" to an uploaded model — a styling feature on top of an existing rig.
 - Multiple models/characters in one scene.
 - Export pipeline beyond in-app playback.
 - MCP integration with external design tools.
-- Richer physics (muscle, cloth/hair).
+- Richer physics (muscle, cloth/hair) beyond today's joint-limit, collision, and chain-reaction layer.
+- A "pin initial/final state" two-model reference mode and a live debug filmstrip of judged candidates — both exist, neither is part of this version's demoed story.
 
 ## Explicitly Cut
-- Building Atmosphere's own mannequin geometry — superseded; the uploaded model is the subject now.
-- AI-generated appearance/texture from a reference photo — proved to be the hardest, least-resolved part of the original plan; cut from this PoC, may return later as an optional styling layer on top of an uploaded rig.
+- Building Atmosphere's own mannequin geometry as the user-facing subject — the uploaded model is the subject. (A stand-in mannequin still exists, but only internally, so Jev always judges a neutral, comparable body — it's never shown to the user.)
+- AI-generated appearance/texture from a reference photo.
 - Editing or retexturing the uploaded model's own materials.
 - Multiple models in one scene.
 - User accounts, login, or deployment.

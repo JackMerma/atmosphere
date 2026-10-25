@@ -7,96 +7,97 @@ status: approved
 
 ## How This Works, In Plain Language
 
-You open one page. You upload a 3D model file that already has a skeleton (bones) in it — something you downloaded or grabbed from a free rigged-character library like Mixamo. The browser reads that file directly (no server involved) and finds every bone it can rotate. You can spin the whole model around, or flip a switch ("Lock") and drag individual bones to see what they do.
+You open one page. You upload a `.glb` file of an already-rigged humanoid model — something you downloaded or grabbed from a free rigged-character library like Mixamo. The browser reads that file directly (no server involved) and finds every bone it can rotate, and checks that the bone names look like a human skeleton. Every joint shows up as a small dot on the model that you can grab and drag directly, any time, just to see what the rig can actually do.
 
-Then you type a sentence describing a sequence of poses. That sentence goes to Gemini, which breaks it into a short list of individual pose descriptions ("sitting, looking up" → "standing" → "squinting"). For each pose in that list, the app takes a screenshot of the 3D view, sends it to Jev (the AI you're paying to use) with one question: "does this match the pose?" If Jev says no, it asks a second question: "which single bone should move, and which way?" The app makes that small move, takes another screenshot, and asks again — up to 10 times per pose. That's "convergence": small nudges toward a target, the same way you'd slowly turn a toy figure into the position you want. Once a pose is reached (or the attempts run out), the app remembers that pose as a keyframe and moves to the next one in the sequence.
+A side panel has two sections. **Physics** has three sliders: how strictly a joint keeps to a believable human range, how much a drag pulls on the joints above it, and how firmly overlapping limbs get pushed apart. **Motion** has the prompt box and three more sliders that shape the next part.
 
-When all poses are done, the browser smoothly blends between the keyframes — that part is just animation math, no AI involved — and you get a looping clip. Everything you've generated (the model, its bones, and every animation you've made) is saved in your browser itself (IndexedDB — think of it as a small database built into the browser) so it's still there if you refresh the page.
+You type a sentence describing a motion and hit Generate. An AI (OpenAI) reads it and writes out the whole thing as a short list of poses — not vague descriptions, but exact numbers for where every limb should point, plus how important each limb is to that particular pose, plus a plain-language caption. For each of those poses, the app doesn't invent a body — it reaches into a library of 200+ real poses pulled from real motion-capture animation files, and measures which ones are closest to what the AI asked for. The closest handful get posed onto a plain stand-in body (never your own model) and photographed from four sides. Then Jev — the AI you're paying to use — looks at that small set of photos and picks whichever one actually looks right. That's the "judge": it never invents a pose, it only picks the best real one on offer. Whichever poses win get stitched into an animation and applied to your own model's own joints, with the Physics rules from the panel keeping every pose believable.
 
-Why this shape: there's no backend database and no accounts because nothing needs to be shared between people or survive anywhere but your own browser. There's a tiny server component (a couple of API routes) only because the Jev and Gemini API keys can't safely live in browser code — everything else runs client-side.
+The result saves into an animations list, titled automatically, and you can make as many as you want — each one gets its own entry, nothing overwrites. Press Play and it loops on your model; while it plays, a small second camera view tracks the model so a big movement never drifts out of frame, even if your own view is looking somewhere else.
+
+Why this shape: there's no backend database and no accounts because nothing needs to be shared between people or survive anywhere but your own browser. There's a small server component (two API routes) only because the OpenAI and Jev keys can't safely live in browser code — everything else, including the whole 3D scene and the physics, runs client-side.
 
 ## The Core Journey Through the System
 
 PRD ref: `prd.md > The Core Journey`.
 
-1. User opens the app → **Next.js page** renders the empty dashboard (upload prompt, no model yet).
-2. User picks a `.glb`/`.gltf` file → **browser-side GLTFLoader** (three.js) parses it directly, no upload to any server. **Joint parser** walks the resulting scene graph and extracts every bone (name + hierarchy).
-3. If parsing fails or no bones are found → an error message shows; nothing is saved.
-4. On success → the model renders via **React Three Fiber**; the model file and its joint list are written to **IndexedDB** so a page reload can restore them without re-uploading.
-5. User toggles **Lock** and either orbits the whole model or drags individual bones (hover shows a selection outline, drag rotates that one bone) — pure client-side three.js, no network calls.
-6. User opens the **Motion modal**, types a prompt, submits.
-7. The prompt goes to **`/api/motion/decompose`** → that route calls **Gemini** (JSON mode) → returns an ordered list of pose descriptions.
-8. For each pose description, the client runs the **convergence loop**: render the canvas to an image → POST it plus the pose text and the model's current joint list to **`/api/motion/step`** → that route calls **Jev** (Noul, then conditionally Choice) → returns match status and, if needed, one joint adjustment → the client applies it and loops, up to 10 iterations, then moves to the next pose.
-9. Converged poses become keyframes; the client interpolates between them (three.js `AnimationClip`/manual tweening) to produce a smooth loop.
-10. The finished animation (its keyframes) is saved as a new entry in the **Animations history**, written to IndexedDB, and shown at the top of the history panel.
-11. User presses **Play** → the active animation (from history) loops on the model.
+1. User opens the app → **Next.js page** (`app/page.tsx`) renders the empty dashboard (upload prompt, no model yet).
+2. User picks a `.glb` file → **browser-side `GLTFLoader`** (three.js) parses it directly, no upload to any server. `gltfJoints.ts` walks the resulting scene graph for every `THREE.Bone`; `humanoidRig.ts` checks the bone names against a Mixamo-style humanoid convention; `modelLoader.ts` normalizes the model's scale and stands it on the floor.
+3. If parsing fails, no bones are found, or the rig isn't recognized as humanoid → an error message shows; nothing is saved.
+4. On success → the model renders via **React Three Fiber**; the model and its joint list are written to **IndexedDB** (`lib/db.ts`) so a page reload can restore them without re-uploading.
+5. User drags any joint handle directly on the model to confirm it responds — pure client-side math (`JointHandles.tsx`, `lib/boneMath.ts`), no network call, and nothing from this is saved.
+6. User opens the **Physics**/**Motion** panel (an exclusive accordion — opening one closes the other), adjusts the three Physics dials and the three Motion dials, and types a motion prompt.
+7. User presses **Generate** → `lib/animator.ts` calls **`POST /api/motion/plan`** → that route calls **OpenAI** (`gpt-4.1-mini`) → returns a title, a duration, loop/mirror flags, and an ordered list of poses, each a direction vector per body segment plus a per-segment importance weight and a caption.
+8. For each planned pose, `lib/libraryChoice.ts` measures it against the pre-harvested pose library (`public/poseLibrary.json`), keeps the nearest candidates (count set by the **ranked poses** dial, each required to differ from the others already kept), poses them on the stand-in mannequin, and photographs each from four angles.
+9. The shortlist goes through a knockout: **`POST /api/motion/rank`** → that route calls **Jev**, asking "which of these is best" across however many candidates the **options per query** dial allows, running the **batches** dial's worth of comparisons at once, until one candidate per pose remains.
+10. Every chosen pose — and the mirrored second half, when the plan loops symmetrically — passes through `settlePose` (`lib/settle.ts`): joint limits, then self-collision, repeated until the body is clear.
+11. The finished animation is saved as a new, titled entry in the **Animations history**, written to IndexedDB, and shown at the top of the history panel.
+12. User presses **Play** → `PlaybackDriver` walks the saved keyframes on the model, and a small tracking-camera view appears alongside the panel for as long as it plays.
 
 ## Stack
 
-- **Next.js 15 (App Router), TypeScript, React 19** — one framework for the UI and for the two small backend routes (Jev/Gemini proxies), so there's a single `npm run dev` and no separate server process to manage. [nextjs.org/docs](https://nextjs.org/docs)
-- **three.js** — the 3D engine (loading the model, rendering, rotating bones). [threejs.org/docs](https://threejs.org/docs/)
-- **@react-three/fiber** — lets the 3D scene be written as React components, so Lock state, hover/selection, and the active animation all live in normal React/Zustand state instead of being hand-synced with an imperative three.js scene. Learner-agreed tradeoff: one more concept to learn, in exchange for far less manual sync code. [docs.pmnd.rs/react-three-fiber](https://docs.pmnd.rs/react-three-fiber)
-- **@react-three/drei** — small helper set on top of r3f (orbit controls, loaders); used only where it saves hand-written three.js boilerplate.
-- **Zustand** — holds the loaded model's joints, Lock state, selected history entries, and in-flight generation status, shared across the viewport and the side panels without prop drilling. [zustand docs](https://zustand.docs.pmnd.rs/)
+- **Next.js 16 (App Router), TypeScript, React 19** — one framework for the UI and for the two small backend routes (OpenAI/Jev proxies), so there's a single `npm run dev` and no separate server process. [nextjs.org/docs](https://nextjs.org/docs)
+- **three.js** — the 3D engine (loading the model, rendering, rotating bones, the physics math). [threejs.org/docs](https://threejs.org/docs/)
+- **@react-three/fiber** — the 3D scene as React components, so joint state and the active animation live in normal React/Zustand state instead of hand-synced imperative three.js. [docs.pmnd.rs/react-three-fiber](https://docs.pmnd.rs/react-three-fiber)
+- **@react-three/drei** — small helper set on top of r3f (camera framing, loaders); used only where it saves hand-written three.js boilerplate.
+- **Zustand** (`store/useAtmosphereStore.ts`) — the loaded model, the Physics/Motion dial values, the animations history, and in-flight generation status, shared across the viewport and the panel without prop drilling.
 - **Tailwind CSS** — utility classes for the Heron-inspired UI shell (cream background, hairline borders, condensed uppercase type). [tailwindcss.com/docs](https://tailwindcss.com/docs)
 - **idb** (small wrapper over the browser's IndexedDB) — for storing the model file, joint map, and animations history across reloads. [github.com/jakearchibald/idb](https://github.com/jakearchibald/idb)
 - **Google Fonts: Archivo Black (headlines), JetBrains Mono (labels)** — matches the Heron reference's condensed-caps/monospace-label character.
-
-**Unverified, check early in the build:**
-- Exact current Gemini model name for JSON-mode structured output — the pattern (`responseSchema` + `responseMimeType: "application/json"` on `generateContent`) is documented, but the specific model id should be confirmed against the live model list, not assumed. [ai.google.dev/gemini-api/docs/json-mode](https://ai.google.dev/gemini-api/docs/json-mode)
-- Jev's exact per-image token count — pricing is confirmed ($0.042/M input tokens, output free), but the image-token estimate used in this spec's cost math is a conservative guess, not an official number.
 
 ## Where It Runs and How Someone Tries It
 
 Runs entirely locally for this PoC — no deployment.
 
-- **Requirements:** Node.js (LTS), a `TYPESAFE_API_KEY` (Jev) and a `GEMINI_API_KEY`, both in `.env.local` (gitignored).
+- **Requirements:** Node.js (LTS), an OpenAI API key and a Jev (TypeSafe) API key, both in `.env.local` (gitignored).
 - **Start command:** `npm install` then `npm run dev`, open `http://localhost:3000`.
-- **To demo:** upload a rigged `.glb` (e.g. from Mixamo's free library), toggle Lock and drag a bone to show manual control, open Motion, type a multi-pose prompt, watch the convergence loading state, then press Play on the result. Record this flow for the submission video.
+- **To demo:** upload a rigged humanoid `.glb` (e.g. from Mixamo's free library), drag a joint to show it respond, open the Physics and Motion sections, type a prompt like "jump" or "walk", watch the Generate loading state, then press Play and watch the tracking camera pick up the motion. Record this flow for the submission video.
 - Submission requires the demo video and a public GitHub repository; no deployed URL is required or planned for this PoC.
 
 ## Look and Feel
 
 Carried from `prd.md > Look and Feel` and `scope.md > Inspiration & Identity` — reference: [heronaiapp.com](https://heronaiapp.com/).
 
-- **Palette:** warm cream background (`#f2eee3`-ish), near-black text, one bold accent (orange-red, `#ff4d1a`-ish) — implemented as Tailwind theme tokens.
+- **Palette:** warm cream background (`#f2eee3`-ish), near-black text, one bold accent (orange-red, `#ff4d1a`-ish) — Tailwind theme tokens.
 - **Typography:** Archivo Black (or similar bold condensed caps) for headings; JetBrains Mono, letter-spaced, for labels/nav/buttons.
-- **Structure:** 1px hairline borders (`border-black/90`), small CSS-drawn corner brackets on cards and panels (pseudo-element technique), thin dividers between sections. No shadows, no rounded corners beyond a 2px radius.
-- **The 3D model itself is unstyled by Atmosphere** — it renders with whatever materials/textures the uploaded file carries. Only the UI chrome around the viewport (panels, buttons, history list) uses the Heron palette/type.
-- **Joint highlight:** a thin outline/selection indicator (e.g. `three.js` `EdgesGeometry` or a simple bounding highlight) rendered over the hovered bone's associated mesh region — never a material color override, since the model's materials belong to the uploaded asset.
+- **Structure:** 1px hairline borders, small CSS-drawn corner brackets on cards and panels (`CornerBrackets.tsx`), thin dividers between sections. No shadows, no rounded corners beyond a 2px radius.
+- **The 3D model itself is unstyled by Atmosphere** — it renders with whatever materials/textures the uploaded file carries. Only the UI chrome (panel, buttons, history list) uses the Heron palette/type.
+- **Joint handles:** small, always-visible, non-destructive dots on the model; the one currently held highlights, never a material color override, since the model's materials belong to the uploaded asset.
 
 ## Components
 
 ### Model Upload & Joint Parser
-Client-side file input → `GLTFLoader` (three.js) parses the `.glb`/`.gltf` into a scene graph → a parser walks it for `THREE.Bone` nodes, building an ordered joint list (`{ name, id }`). Writes the parsed model + joint list to IndexedDB on success; shows an error state on failure or an empty joint list.
+Client-side file input → `GLTFLoader` (three.js) parses the `.glb` into a scene graph. `gltfJoints.ts` walks it for `THREE.Bone` nodes into an ordered joint list; `humanoidRig.ts` recognizes a humanoid rig from its bone names (Mixamo-style, `_L`/`_R`, `ArmL` conventions); `modelLoader.ts` normalizes scale (exporters disagree on units) and stands the model on the floor. Writes the parsed model and joint list to IndexedDB on success; shows an error state on failure, an empty joint list, or a non-humanoid rig.
 PRD ref: `prd.md > Model Upload & Joint Mapping`.
 
-### Rig Viewport & Manual Manipulation (Lock)
-An `@react-three/fiber` `<Canvas>` rendering the loaded model. Lock state (Zustand) switches pointer behavior between whole-model `OrbitControls`-style rotation and per-bone raycasting (hover → highlight, drag → rotate that bone's `THREE.Object3D.rotation`).
-PRD ref: `prd.md > Manual Joint Exploration (Lock)`.
+### Direct Joint Manipulation
+`JointHandles.tsx` draws a draggable dot at every joint's world position (outside the stage group, since it tracks its bone in world space). Dragging projects the cursor onto a camera-facing plane (`lib/boneMath.ts`) and rotates the dragged joint's **parent** bone, so the dot itself follows the cursor. Optionally propagates a share of the move up the chain — see Physics Configuration below. Nothing here is saved; `lib/pose.ts` resets to rest on load.
+PRD ref: `prd.md > Direct Joint Manipulation`.
 
-### Motion Orchestration
-Two parts:
-- **Pose decomposition** (`/api/motion/decompose`): takes the raw prompt, calls Gemini with a JSON schema (`{ poses: string[] }`), returns the ordered list of pose descriptions.
-- **Convergence loop** (client-driven, calling `/api/motion/step` per iteration): for each pose description, repeatedly renders the current canvas to a data URL, posts it with the pose text and current joint list to the server route, which calls Jev (Noul match-check, then Choice adjustment if unmatched) and returns the result; the client applies the adjustment and loops, capped at 10 iterations (configurable constant), then records the best-reached pose as a keyframe.
-PRD ref: `prd.md > Motion Generation (Jev Convergence)`.
+### Physics Configuration
+`PhysicsSection.tsx` exposes three dials, held in `store/useAtmosphereStore.ts > settings`: joint-limit strength, chain-reaction strength, and self-collision strength. `lib/jointLimits.ts` measures each model's own anatomical ranges at rest (so an A-pose and a T-pose both work) and scales them by the joint-limit dial; `lib/collision.ts` resolves capsule self-collision scaled by its own dial; `lib/ikChain.ts` spreads a hand-drag up the chain scaled by the chain-reaction dial. `lib/settle.ts` (`settlePose`) is the single entry point every pose — planned, chosen by Jev, or hand-dragged — passes through before it's shown; `lib/anchor.ts` keeps the hips exempt from any automatic rotation.
+PRD ref: `prd.md > Physics Configuration`.
+
+### Motion Generation (Plan, Match, Judge)
+`lib/animator.ts` orchestrates the pipeline on Generate:
+1. `lib/plannerClient.ts` calls `POST /api/motion/plan`, which calls **OpenAI** with the prompt and the model's rest pose as segment vectors; returns a title, duration, loop/mirror flags, and an ordered list of poses — each a direction vector per body segment, an importance weight per segment, and a caption.
+2. For each planned pose (only the first half when the plan mirrors — the second half is the exact left/right reflection of whichever pose the first half actually lands on), `lib/libraryChoice.ts` measures it against the harvested library (`lib/poseLibrary.ts`, `public/poseLibrary.json`), keeps the **ranked poses** nearest (each required to differ from the others already kept, so the shortlist isn't several frames of the same clip), poses them on the stand-in mannequin (`lib/mannequin.ts`, `public/mannequin.glb` — never the uploaded model) and photographs each from four angles (`lib/viewAngles.ts`: front/right/back/left).
+3. The shortlist goes through a knockout: `POST /api/motion/rank` calls **Jev**, comparing **options per query** candidates per round across **batches** concurrent rounds, until one candidate remains.
+4. Every chosen (or mirrored) pose passes through `settlePose` before being accepted.
+PRD ref: `prd.md > Motion Generation (Plan, Match, Judge)`.
 
 ### Animations History & Playback
-Each completed motion generation (its ordered keyframes) is appended to a Zustand-held, IndexedDB-persisted list, newest first, labeled "Animation N". Selecting an entry sets it active; Play interpolates and loops the active entry's keyframes on the loaded model.
-PRD ref: `prd.md > Animations History & Playback` (Playback section).
-
-### Persistence Layer
-Thin wrapper (`lib/db.ts`, using `idb`) around three IndexedDB stores: `model` (the uploaded file blob + parsed joint list), `animations` (history entries), and app metadata. Read on app load to restore state without re-upload; written whenever the model or history changes.
-PRD ref: `prd.md > States and Boundaries` (Persistence).
+`AnimationsHistoryPanel.tsx` lists saved entries (`lib/animations.ts`, IndexedDB via `lib/db.ts`), newest first, titled by the planner, selectable. `PlayButton.tsx` starts `PlaybackDriver.tsx`, which walks `lib/timeline.ts` each frame: keyframes are slerped with their own easing/hold, each joint reads the timeline slightly behind the one above it, `settlePose` runs once per frame, and a grounded pose stands on its lowest foot (`lib/grounding.ts`) so weight comes from the floor rather than an animated curve. `lib/motionParams.ts` holds the global playback dials (amplitude, lag, bob, arm phase, spacing) at fixed defaults for this version. `FollowCameraView.tsx`/`FollowCameraFrame.tsx` (`lib/followViewLayout.ts`) render a second, small tracking view only while playing — a second `gl.render()` into a scissored region of the same canvas/renderer/scene, not a second `<Canvas>`, since a `THREE.Object3D` can only have one parent.
+PRD ref: `prd.md > Animations History & Playback`.
 
 ## Data Model
 
-All client-side, in IndexedDB (no server database):
+All client-side, in IndexedDB (`lib/db.ts`) — no server database:
 
-- **`model`** — `{ fileBlob, fileName, joints: [{ name, id, parentId }] }`. One record; replaced when a new model is uploaded.
-- **`animations`** — list of `{ id, label ("Animation N"), createdAt, keyframes: [{ poseDescription, jointAngles: { [jointId]: { x, y, z } } }] }`. Appended to, never overwritten; this is what the history panel reads and what Play interpolates.
+- **`model`** — the uploaded file, its parsed joint list, and the recognized humanoid mapping. One record; replaced on a new upload.
+- **`animations`** — a list of `{ id, title, createdAt, keyframes }`, each keyframe holding every bone's rotation in bone-traversal order (not by bone id — ids regenerate on every parse, so an id-keyed record would silently stop matching after a reload). Appended to, never overwritten; this is what the history panel reads and what Play walks.
 
-State that does **not** persist: in-progress Lock/hover selection, modal open/closed state, loading/progress indicators — these reset on reload, which is expected and fine (PRD only requires the model and generated history to survive).
+State that does **not** persist: a hand-dragged pose (always resets to rest on reload), which panel is open, in-flight generation progress. The PRD only requires the uploaded model and the generated history to survive a reload, and that's what's stored.
 
 ## File Structure
 
@@ -108,64 +109,97 @@ atmosphere/
 │   ├── globals.css                   # Tailwind + Heron palette/type tokens
 │   └── api/
 │       └── motion/
-│           ├── decompose/route.ts    # Prompt -> ordered pose list (Gemini)
-│           └── step/route.ts         # One convergence iteration (Jev: Noul + Choice)
+│           ├── plan/route.ts         # Prompt -> titled pose plan (OpenAI)
+│           └── rank/route.ts         # Knockout: best of several candidates (Jev)
 ├── components/
 │   ├── ModelUpload.tsx               # File picker, triggers client-side GLTF parse
-│   ├── RigViewport.tsx               # r3f <Canvas>: model, Lock/hover/drag logic
-│   ├── LockToggle.tsx
-│   ├── MotionModal.tsx               # Prompt input, drives decomposition + convergence
+│   ├── RigViewport.tsx               # r3f <Canvas>: the model, the stage, playback
+│   ├── ViewportBridge.tsx            # capture()/captureProxy() for judging, off-screen
+│   ├── PlaybackDriver.tsx            # Drives the stage model through the active animation
+│   ├── CentroidLock.tsx              # Holds the model over its mark on the stage
+│   ├── JointHandles.tsx              # The draggable joint dots
+│   ├── PhysicsSection.tsx            # Joint limits / chain reaction / collision dials
+│   ├── MotionSection.tsx             # Prompt + ranked poses / options per query / batches
 │   ├── AnimationsHistoryPanel.tsx
-│   └── PlayButton.tsx
+│   ├── PlayButton.tsx
+│   ├── FollowCameraView.tsx          # Tracking picture-in-picture, shown only while playing
+│   ├── FollowCameraFrame.tsx         # Its HTML border overlay
+│   └── CornerBrackets.tsx            # Heron-style corner accents
 ├── lib/
-│   ├── jevClient.ts                  # Server-side wrapper for TypeSafe /v1/systemone
-│   ├── geminiClient.ts               # Server-side wrapper for Gemini generateContent (JSON mode)
-│   ├── gltfJoints.ts                 # Walks a loaded GLTF scene, extracts the joint list
-│   ├── convergence.ts                # Client-side orchestration of the per-pose iterate loop
+│   ├── modelLoader.ts                # Reads .glb, normalises scale, stands it on the floor
+│   ├── gltfJoints.ts                 # Walks a parsed GLTF scene for its joints
+│   ├── humanoidRig.ts                # Recognises a humanoid rig from its bone names
+│   ├── jointLimits.ts                # Anatomical ranges per model, scaled by its dial
+│   ├── collision.ts                  # Capsule self-collision, scaled by its dial
+│   ├── ikChain.ts                    # Spreads a hand-drag up the chain, scaled by its dial
+│   ├── settle.ts                     # settlePose: limits -> collision -> limits
+│   ├── anchor.ts                     # The hips: nothing automatic may rotate them
+│   ├── grounding.ts                  # Stands the figure on its lowest foot
+│   ├── boneMath.ts                   # Cursor-to-rotation projection for dragging a joint
+│   ├── poseRetarget.ts               # Segment vectors <-> bone rotations, and mirroring
+│   ├── poseLibrary.ts                # Distance between poses, and the nearest-N search
+│   ├── libraryChoice.ts              # The knockout: Jev picks one pose from a shortlist
+│   ├── mannequin.ts                  # The stand-in body every candidate is photographed on
+│   ├── viewAngles.ts                 # The four camera angles a candidate is judged from
+│   ├── plannerClient.ts              # Client-side call into /api/motion/plan
+│   ├── animator.ts                   # Orchestrates one full Generate run, start to finish
+│   ├── timeline.ts                   # The pose an animation holds at a given moment
+│   ├── motionParams.ts               # The fixed playback dials (amplitude, lag, bob, …)
+│   ├── jevClient.ts                  # Server-side wrapper for the Jev API
+│   ├── animations.ts                 # Animation history read/write helpers
+│   ├── pose.ts                       # Snapshot / restore / rest
+│   ├── followViewLayout.ts           # The one rect the tracking view and its frame share
 │   └── db.ts                         # IndexedDB helpers (model, animations) via `idb`
 ├── store/
-│   └── useAtmosphereStore.ts         # Zustand: model, joints, Lock state, histories, active animation
+│   └── useAtmosphereStore.ts         # Zustand: model, dials, history, active animation
+├── scripts/
+│   ├── harvest.ts                    # Builds public/poseLibrary.json from Mixamo animation files
+│   └── mannequin.ts                  # Strips an animation file down to the stand-in body
+├── checks/                           # Numeric scripts verifying the physics/matching math — see docs/checks.md
+├── public/
+│   ├── poseLibrary.json              # The harvested pose vocabulary (200+ poses)
+│   └── mannequin.glb                 # The stand-in body
 ├── devpost/                          # Devpost learning workspace (this plan)
-├── .env.local                        # TYPESAFE_API_KEY, GEMINI_API_KEY (gitignored)
+├── .env.local                        # OPENAI_API_KEY, TYPESAFE_API_KEY (gitignored)
 ├── package.json
 └── README.md
 ```
 
+A few files exist in the repo but support work that isn't part of this version's demoed story — `DualStateToggle.tsx`, `StateColumn.tsx`, `StageChoreography.tsx`, `lib/poseEstimation.ts`, and `DebugFilmstrip.tsx`/`store/useDebugFilm.ts` — left out of the tree above since they back the reference-pose and debug-view mechanisms covered in `prd.md > Deferred From the POC`, not the flow the demo walks through.
+
 ## External Services and Dependencies
 
-### Jev (TypeSafe AI) — pose matching and adjustment decisions
-- **Endpoint:** `POST https://api.typesafe.ai/v1/systemone`
-- **Auth:** API key in request header (server-side only, via `/api/motion/step`).
-- **Calls used:** one **Noul** question per iteration ("does the rendered pose match `<description>`?", image passed as an `assets` entry) → `{ noul: 0–1 }`; if below threshold, one **Choice** question ("which single adjustment gets closest?", options built from the model's live joint list × a small fixed set of direction/step combinations) → `{ choice, confidence }`.
-- **Docs:** [docs.typesafe.ai](https://docs.typesafe.ai) (question types), image support at [docs.typesafe.ai/images](https://docs.typesafe.ai/images).
-- **Cost:** $0.042 per million input tokens, output free; a full 10-iteration pose is roughly $0.001–0.003 even under conservative image-token assumptions — negligible against the learner's existing $5 credit. [Source](https://www.eesel.ai/blog/typesafe-jev-pricing)
-- **Key:** already obtained by the learner (TypeSafe console, named "atmosphere").
+### OpenAI — motion planning
+- **Call:** `POST /api/motion/plan` → OpenAI `gpt-4.1-mini` with structured output, given the prompt and the model's rest pose as segment vectors; returns a title, timing, loop/mirror flags, and the ordered pose list.
+- **Docs:** [platform.openai.com/docs](https://platform.openai.com/docs/)
+- **Cost:** roughly $0.005 per generation — cheap and fast since the model doesn't reason, chosen for its strict structured-output support (needed to reliably return 13 direction vectors per pose).
+- **Key:** `OPENAI_API_KEY` in `.env.local`, server-side only.
 
-### Gemini — prompt decomposition
-- **Call:** `generateContent` with `responseMimeType: "application/json"` and a `responseSchema` describing `{ poses: string[] }`.
-- **Docs:** [ai.google.dev/gemini-api/docs/json-mode](https://ai.google.dev/gemini-api/docs/json-mode)
-- **Key:** learner already has a Gemini API key from prior projects.
-- **Model name:** to confirm against the live model list at build time (see Stack, Unverified).
+### Jev (TypeSafe AI) — candidate judging
+- **Endpoint:** `POST https://api.typesafe.ai/v1/systemone`, proxied through `POST /api/motion/rank`.
+- **Auth:** API key in request header (server-side only, via `lib/jevClient.ts`).
+- **Call used:** one **Choice** question per knockout round — "which of these candidates is best" — with the current leader carried into the next round, never a raw numeric score (Jev's scores sit low and barely move, so ranking replaced scoring; see `docs/decisions.md`).
+- **Docs:** [docs.typesafe.ai](https://docs.typesafe.ai)
+- **Measured cost (real API run, 5-pose plan, no pose mirrored):** 25 rank calls, 0 errors, 63s total, each call 185–205KB and 425–1498ms — negligible against the learner's existing credit.
+- **Key:** already obtained by the learner (TypeSafe console).
 
 ## Important Failure Modes
 
-- **Uploaded file has no skeleton / fails to parse** → show an error message inline on the upload control; nothing is written to IndexedDB; user can pick another file immediately.
-- **Jev or Gemini call fails or times out mid-generation** → stop the current generation, show a plain error message, leave any already-converged poses from earlier in the sequence out of the saved result (no partial/corrupt history entry is written).
-- **Convergence never reaches a confident match within 10 iterations** → use the best pose reached (highest Noul confidence seen) as that pose's keyframe and continue to the next pose, rather than stalling the whole generation.
+- **Uploaded file has no skeleton, fails to parse, or isn't recognized as a humanoid rig** → show an error message inline on the upload control; nothing is written to IndexedDB; the user can pick another file immediately.
+- **OpenAI or Jev call fails or times out mid-generation** → stop the current generation, show a plain error message, and write no partial or corrupted history entry.
+- **A candidate photography burst would otherwise stall the page** — posing and photographing a shortlist runs synchronously once the mannequin is cached; a yield point after each candidate keeps camera orbit and input responsive through a long generation instead of appearing to lock the viewport.
 
 ## What Was Simplified and Why
 
 - **Browser-side IndexedDB instead of a server database** — nothing needs to be shared between users or survive beyond one browser; a server DB would add infrastructure with no product benefit here.
-- **Joint adjustments from a small fixed set of direction/step options (not continuous angles)** instead of asking Jev for an exact rotation value — Jev's API only supports Choice/Score/Noul, not arbitrary numeric output; the fuller version (continuous control) would need a different kind of model entirely.
-- **A capped, fixed-step convergence loop (10 iterations, 15°-ish steps)** instead of a physics-aware or learned controller — keeps cost and latency bounded and predictable for a PoC; a fuller version would tune step size and iteration count per joint type.
-- **Prompt decomposition via one Gemini JSON call** instead of a hand-written parser — more robust to varied phrasing than a comma/keyword split, at the cost of one more external dependency the learner already has a key for.
-- **No re-texturing/appearance generation at all** — the uploaded model's own look is used as-is; the earlier reference-photo-driven layering idea is deferred (see `prd.md > Deferred From the POC`), because it was the hardest, least-resolved part of the original plan.
+- **Choosing a real pose from a harvested library instead of generating one from scratch** — every candidate is a pose a real person actually held, which gives the judge a floor of real bodies to pick from rather than an AI's approximation of one to score.
+- **Ranking candidates instead of scoring them** — Jev's absolute match score sits low and barely moves, which makes climbing it close to random search; asking "which of these is best," with the current pose among the options, is a question Jev answers well and is monotone by construction.
+- **Global, fixed playback dials instead of per-keyframe timing controls** — per-keyframe dials would be too many to tune with a handful of generation rounds, and would let a mirrored cycle's two halves drift out of symmetry.
+- **No re-texturing or appearance generation at all** — the uploaded model's own look is used as-is; this was the hardest, least-resolved part of an earlier direction and is deferred (see `prd.md > Deferred From the POC`).
 
 ## Decisions and Open Issues
 
-- **Pivot from a custom-built mannequin + photo-driven layering to an uploaded, already-rigged model** — decided across `scope.md`/`prd.md` during this session; carried into this spec as the foundation for every component above.
-- **Jev can't output continuous values** — the one genuine uncertainty resolved during this session: initial assumption was that Jev could be asked directly for joint angles; checking `docs.typesafe.ai`'s question-type reference showed only Choice/Score/Noul exist, which led to the iterative convergence design (Noul to check, Choice to adjust) instead of a single-call "give me the angle" approach. This is the mechanism the learner specifically wanted to understand, and it's now grounded in the actual, verified API surface rather than an assumption.
-- **Jev's per-image token cost is estimated, not official** — TypeSafe hasn't published exact image-token pricing; the cost estimate in this spec uses a deliberately high assumption and still lands under a cent per pose. Verify against the first real API response early in the build (`usage.input_tokens` on the first call).
-- **Gemini model name** — to confirm at build start against the live model list; the JSON-mode request shape is otherwise documented and stable.
-- **Exact axis/direction options offered to Jev's Choice question per joint** — this spec assumes a small fixed set (e.g. a couple of axes × two directions × one step size) per joint; the right set depends on how typical rigged models (e.g. Mixamo exports) author their bone rotations, which is easiest to confirm by inspecting a real model early in the build rather than guessing further here.
-- **Default iteration cap (10) and convergence confidence threshold** — starting values, explicitly tunable once real convergence behavior is visible (carried from `prd.md > Open Questions`).
+- **The pipeline plans, matches, and judges, rather than searching for a pose** — the learner chose this over hill-climbing or convergence approaches specifically because real motion-capture poses give the judge a real body to choose from, and a ranking question is one Jev answers reliably where a numeric score does not. Carried into every component above.
+- **Candidates are judged from four angles, not one** — settled by running it: one angle alone couldn't distinguish a crouch from standing, since that's a front-to-back/depth distinction a head-on camera can't see.
+- **No new technical uncertainty surfaced in this pass** — this spec reconciles the written plan with an already-working pipeline, verified against the real OpenAI and Jev APIs (see `docs/decisions.md`, `docs/checks.md`); no open implementation question remains that blocks approval.
+- Carried from `prd.md > Open Questions`: exact default values for the Physics and Motion dials remain tunable against real generations; whether the debug view or the "pin two states" mode become user-facing features is for later, not part of this POC.
