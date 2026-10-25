@@ -123,6 +123,14 @@ export async function chooseLibraryPose(args: {
       })
     );
     built.push({ pose, distance, segments: pose.segments, quats, shots });
+    // Every view in that Promise.all ran as one synchronous burst -- posing the
+    // mannequin, rendering it and reading the pixels back have no real await
+    // between them -- so nothing has handed control back to the browser since
+    // the last candidate. Without this, a long shortlist pins the main thread
+    // for its whole length and orbiting the camera mid-generation reads as
+    // locked even though nothing ever disabled it. One frame is enough to let
+    // a pending drag or repaint through.
+    await new Promise(requestAnimationFrame);
   }
   // Posing the proxy left the user's model on the last candidate.
   restorePose(bones, previous);

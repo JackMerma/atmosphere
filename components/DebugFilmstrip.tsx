@@ -9,12 +9,14 @@ const THUMB = 72;
  * Every image handed to Jev during the current (or most recent) generation,
  * across every candidate and every angle, as a strip along the bottom of the
  * screen. Debugging only: it is exactly what was sent, in the order it was
- * sent, with nothing summarised away.
+ * sent, with nothing summarised away -- no pose description, just the
+ * pictures and what each one is (candidate, distance, angle), so the strip
+ * reads as data rather than another place to read prose.
  *
  * Grouped by which of the planner's poses each run of images belongs to --
  * `poseText` changes exactly when `chooseLibraryPose` moves on to the next
- * one -- and within that, by candidate, since each candidate's `JUDGE_VIEWS`
- * angles are captured together.
+ * one, marked only by a hairline divider -- and within that, by candidate,
+ * since each candidate's `JUDGE_VIEWS` angles are captured together.
  */
 export default function DebugFilmstrip() {
   const frames = useDebugFilm((s) => s.frames);
@@ -67,29 +69,12 @@ export default function DebugFilmstrip() {
             return (
               <div
                 key={gi}
-                className={`flex shrink-0 flex-col gap-1 ${newPose && gi > 0 ? "border-l border-hairline pl-3" : ""}`}
+                className={`flex shrink-0 items-center gap-1 ${newPose && gi > 0 ? "border-l border-hairline pl-3" : ""}`}
               >
-                {/* A fixed-height slot on every group, title or not, so the
-                    thumbnail row below always starts at the same y -- a
-                    continuing candidate run has nothing to put here, but it
-                    still reserves the space. The title itself is generous
-                    (700px, well past its own candidate row's ~400px) so a
-                    long description pushes into the room a continuing run
-                    would otherwise leave empty, rather than wrapping tight to
-                    its own thumbnails; still bounded, so it never reaches
-                    into a genuinely different pose's own title. */}
-                <div className="h-4 leading-4">
-                  {newPose && (
-                    <p className="max-w-[700px] truncate font-mono text-[10px] uppercase tracking-widest text-accent">
-                      {group.poseText}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="flex gap-1">
-                    {group.frames.map((f, fi) => (
+                <div className="flex gap-1">
+                  {group.frames.map((f, fi) => (
+                    <div key={fi} className="flex flex-col items-center gap-0.5">
                       <img
-                        key={fi}
                         src={f.image}
                         alt={`${f.candidateLabel} · yaw ${f.yaw}°`}
                         title={`${f.candidateLabel} · ${f.distance.toFixed(1)}° · yaw ${f.yaw}°`}
@@ -97,14 +82,15 @@ export default function DebugFilmstrip() {
                         height={THUMB}
                         className="h-[72px] w-[72px] border border-hairline object-cover"
                       />
-                    ))}
-                  </div>
-                  <p className="w-24 shrink-0 truncate font-mono text-[10px] uppercase tracking-widest text-foreground/60">
-                    {group.candidateLabel}
-                    <br />
-                    {group.distance.toFixed(1)}°
-                  </p>
+                      <span className="font-mono text-[9px] text-foreground/50">{f.yaw}°</span>
+                    </div>
+                  ))}
                 </div>
+                <p className="w-24 shrink-0 truncate font-mono text-[10px] uppercase tracking-widest text-foreground/60">
+                  {group.candidateLabel}
+                  <br />
+                  {group.distance.toFixed(1)}°
+                </p>
               </div>
             );
           })}

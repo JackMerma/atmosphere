@@ -56,10 +56,15 @@ export default function Home() {
     <div className="min-h-screen">
       <RigViewport />
       {/* max-h clears the collapsed debug filmstrip's header (fixed to the
-          bottom edge) with room to spare; overflow-y-auto means a tall panel
-          (many sliders, a long animation list) scrolls within itself instead
-          of growing past that limit and under the strip. */}
-      <div className="fixed right-6 top-6 z-10 max-h-[calc(100vh-5.5rem)] w-80 overflow-y-auto border border-hairline bg-background p-4">
+          bottom edge) with room to spare; overflow-y-auto means a scrollbar
+          only appears once a tall panel (many sliders, a long animation list)
+          actually reaches that limit, never before. overflow-x-hidden is
+          required alongside it, not redundant: per the CSS spec, setting only
+          overflow-y makes overflow-x compute to `auto` too, so without this a
+          single pixel of rounding on any child is enough to show a horizontal
+          scrollbar that was never wanted -- the panel's own width is fixed and
+          every child is built to fit inside it. */}
+      <div className="fixed right-6 top-6 z-10 max-h-[calc(100vh-5.5rem)] w-80 overflow-y-auto overflow-x-hidden border border-hairline bg-background p-4">
         <CornerBrackets />
         <div className="flex flex-col gap-3">
           <ModelUpload />
