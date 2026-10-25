@@ -12,6 +12,7 @@ import type { Keyframe } from "@/lib/animations";
 import type { MotionPlan } from "@/lib/plannerClient";
 import { DEFAULT_MOTION, type MotionParams } from "@/lib/motionParams";
 import { useAtmosphereStore } from "@/store/useAtmosphereStore";
+import { useDebugFilm } from "@/store/useDebugFilm";
 
 export interface Progress {
   phase: "planning" | "choosing";
@@ -75,6 +76,10 @@ export async function generateAnimation(
   const { scene, viewport, slots } = useAtmosphereStore.getState();
   if (!scene || !viewport) throw new Error("Load a model first.");
   if (prompt.trim().length === 0) throw new Error("Describe the motion to generate.");
+
+  // Each run starts its own strip; the previous one stays until this clears it,
+  // not until this one's first image lands, so the panel never shows nothing.
+  useDebugFilm.getState().clear();
 
   const bones = bonesOf("initial");
   const startQuats = slotQuats("initial", bones);

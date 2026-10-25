@@ -14,6 +14,7 @@ import { loadModel, loadAnimations } from "@/lib/db";
 import AnimationsHistoryPanel from "@/components/AnimationsHistoryPanel";
 import PlayButton from "@/components/PlayButton";
 import Toaster from "@/components/Toaster";
+import DebugFilmstrip from "@/components/DebugFilmstrip";
 
 export default function Home() {
   const setLoading = useAtmosphereStore((s) => s.setLoading);
@@ -63,6 +64,7 @@ export default function Home() {
           <StateColumn side="final" />
         </>
       )}
+      <DebugFilmstrip />
     </div>
   );
 }

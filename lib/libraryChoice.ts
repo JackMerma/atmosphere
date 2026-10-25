@@ -3,6 +3,7 @@ import { applySegmentsToRig, type PoseSegments } from "@/lib/poseRetarget";
 import { nearestPoses, toCameraFrame, type LibraryPose } from "@/lib/poseLibrary";
 import { JUDGE_VIEWS } from "@/lib/viewAngles";
 import { useAtmosphereStore, type Side } from "@/store/useAtmosphereStore";
+import { useDebugFilm } from "@/store/useDebugFilm";
 
 async function rank(candidates: string[][], text: string): Promise<number> {
   const res = await fetch("/api/motion/rank", {
@@ -106,12 +107,20 @@ export async function chooseLibraryPose(args: {
   // is SHOWN is the same directions on the stand-in body, which is a shape
   // rather than a costume and so a fairer thing to be asked about.
   const built: Built[] = [];
+  const pushFrame = useDebugFilm.getState().push;
   for (const { pose, distance } of shortlist) {
     restorePose(bones, previous);
     applySegmentsToRig(bones, pose.segments, viewport.camera);
     const quats = snapshotPose(bones);
     const shots = await Promise.all(
-      JUDGE_VIEWS.map((yaw) => viewport.captureProxy(pose.segments, yaw, side))
+      JUDGE_VIEWS.map(async (yaw) => {
+        const image = await viewport.captureProxy(pose.segments, yaw, side);
+        // Logged the instant it is captured, not after the round's Jev call
+        // returns, so the strip fills in live as the knockout runs rather than
+        // jumping in batches once each question resolves.
+        pushFrame({ poseText: text, candidateLabel: `${pose.label} @${pose.time}s`, distance, yaw, image });
+        return image;
+      })
     );
     built.push({ pose, distance, segments: pose.segments, quats, shots });
   }
