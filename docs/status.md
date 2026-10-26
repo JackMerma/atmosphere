@@ -2,11 +2,16 @@
 
 Where the project stands, honestly. Written to pick the work back up later.
 
-Last worked on: 25 October 2026. Head of `master`: UI/debug polish on top of
-the motion-judging work — a live debug filmstrip, an exclusive Physics/Motion
-accordion, AI-named animation titles, new default dials, the config panel
-with no scroll, the camera staying responsive during generation, and a
-follow-camera picture-in-picture mini-view during playback.
+Last worked on: 26 October 2026 — the day it was submitted. Head of `master`:
+the planning docs and the build checklist, rewritten around the pose-library +
+Jev-judge pipeline, with the final review, the learning wrap-up and the app map
+closed out.
+
+The code itself is unchanged since the UI/debug polish of 25 October — a live
+debug filmstrip, an exclusive Physics/Motion accordion, AI-named animation
+titles, new default dials, the config panel with no scroll, the camera staying
+responsive during generation, and a follow-camera picture-in-picture mini-view
+during playback.
 
 ## What is verified
 
@@ -156,8 +161,20 @@ two routes left on the table if the result still does not impress:
 
 ## Hackathon state
 
-The build checklist in `devpost/checklist.md` has all six slices ticked. The
-final review, the learning wrap-up and the app map are **not** done, and `6-ship`
-— demo video, public repo, Devpost submission — has not been started. As of 24
-October the user put the deadline at **2–3 days**, which is enough for the two
-cheap wins above and `6-ship`, and not enough for a mocap library.
+**Submitted on 26 October 2026**, before submissions closed. The build
+checklist in `devpost/checklist.md` has all six slices ticked, and the final
+review, the learning wrap-up and the app map are closed out. `6-ship` is done:
+
+- Public repo at `github.com/JackMerma/atmosphere`.
+- Demo video, one take, sped up 1.32x to 2:57 against the three-minute limit.
+- Entry at `devpost.com/software/atmosphere-anything`, listed under
+  "Build With AI: Basics".
+- The pitch deck lives outside the repo, as a private Claude artifact.
+
+Nothing in "The road ahead" below was done. Travel, the contact shadow and
+secondary motion are all still open, and the weaknesses listed above are the
+ones the submitted build shipped with.
+
+One rule is only partly met, and it is cheap to close if this project
+continues: the hackathon asks that the public repo carry an open-source licence
+file, visible in GitHub's About section. There is no `LICENSE` in the tree.
