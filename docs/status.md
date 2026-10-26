@@ -175,6 +175,6 @@ Nothing in "The road ahead" below was done. Travel, the contact shadow and
 secondary motion are all still open, and the weaknesses listed above are the
 ones the submitted build shipped with.
 
-One rule is only partly met, and it is cheap to close if this project
-continues: the hackathon asks that the public repo carry an open-source licence
-file, visible in GitHub's About section. There is no `LICENSE` in the tree.
+The hackathon also asks that the public repo carry an open-source licence file,
+visible in GitHub's About section. `LICENSE` (MIT) was added the same day, just
+after the entry went in.
