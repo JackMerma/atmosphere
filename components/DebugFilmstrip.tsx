@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useDebugFilm } from "@/store/useDebugFilm";
 
 const THUMB = 72;
@@ -24,8 +24,31 @@ export default function DebugFilmstrip() {
   // user opens when they want it, not something that sits in front of the
   // state panels at the bottom of the screen until closed.
   const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const present = frames.length > 0;
 
-  if (frames.length === 0) return null;
+  // Publishes this strip's live height (header, and the frames when open) as
+  // `--filmstrip-h`, which the control panel in `page.tsx` subtracts from its
+  // max-height so the two never overlap. Observed, not computed: the height
+  // changes on open/close and with the window, and 0 when the strip is absent.
+  useLayoutEffect(() => {
+    const el = root.current;
+    const style = document.documentElement.style;
+    if (!present || !el) {
+      style.setProperty("--filmstrip-h", "0px");
+      return;
+    }
+    const sync = () => style.setProperty("--filmstrip-h", `${el.offsetHeight}px`);
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      style.setProperty("--filmstrip-h", "0px");
+    };
+  }, [present]);
+
+  if (!present) return null;
 
   // Split into (pose, candidate) runs without assuming anything about how
   // many angles or candidates there were -- just "the text or the candidate
@@ -48,7 +71,10 @@ export default function DebugFilmstrip() {
   let lastPoseText: string | null = null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-hairline bg-background">
+    <div
+      ref={root}
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-hairline bg-background"
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

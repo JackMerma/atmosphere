@@ -55,13 +55,17 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       <RigViewport />
-      {/* No scroll mechanism at all: Physics and Motion are an exclusive
-          accordion (never both open), and the animation list scrolls within
-          its own fixed height, so the panel itself has no real reason to
-          outgrow the screen in practice. */}
-      <div className="fixed right-6 top-6 z-10 w-80 border border-hairline bg-background p-4">
+      {/* Grows with its content and only scrolls when it would otherwise
+          collide with something: its height is capped at the viewport minus
+          its own margins minus the debug filmstrip, whose height
+          `DebugFilmstrip` publishes as `--filmstrip-h` (0 while it is absent).
+          The scroller is the inner div, so the corner brackets on this box
+          are never clipped. `pr-3 -mr-3` moves its scrollbar 12px out into
+          the box's own padding, leaving a gap between it and the controls
+          while the content keeps its full width when nothing scrolls. */}
+      <div className="fixed right-6 top-6 z-10 flex max-h-[calc(100dvh-3rem-var(--filmstrip-h,0px))] w-80 flex-col border border-hairline bg-background p-4">
         <CornerBrackets />
-        <div className="flex flex-col gap-3">
+        <div className="-mr-3 flex min-h-0 flex-col gap-3 overflow-y-auto pr-3">
           <ModelUpload />
           {SHOW_DUAL_STATE_TOGGLE && <DualStateToggle />}
           <PhysicsSection />

@@ -149,12 +149,25 @@ There is no way to set a pose that skips the physics.
 ## The control panel and the debug/playback overlays
 
 `app/page.tsx` renders one fixed, top-right panel (`ModelUpload`,
-`PhysicsSection`, `MotionSection`, `AnimationsHistoryPanel`, `PlayButton`) with
-**no scroll mechanism at all** — no `max-height`, no `overflow`. That is a
-deliberate choice, not an oversight: Physics and Motion are an **exclusive
-accordion** (`openPanel` in the store, below — opening one closes the other),
-and the animation list scrolls within its own fixed height, so the panel as a
-whole has no real reason to outgrow the viewport.
+`PhysicsSection`, `MotionSection`, `AnimationsHistoryPanel`, `PlayButton`).
+Physics and Motion are an **exclusive accordion** (`openPanel` in the store,
+below — opening one closes the other) and the animation list scrolls within its
+own fixed height, so on a normal viewport the panel fits and **has no scroll**.
+
+On a short viewport it must not run under the bottom filmstrip (below). The
+panel is a flex column whose `max-height` is
+`100dvh - 3rem - var(--filmstrip-h, 0px)`: the viewport minus its own top and
+bottom margins minus the filmstrip's height. Its content sits in an inner div
+with `overflow-y: auto`, so it scrolls **only** when it would otherwise overlap
+— and the corner brackets, which sit on the outer box, are never clipped. The
+scroller carries `pr-3 -mr-3`, which pushes its scrollbar 12px out into the
+outer box's own padding, so the bar has air between it and the controls (a gap
+of 12px, 5px from the border) while the content keeps its full width whenever
+nothing scrolls.
+`--filmstrip-h` is published on `<html>` by `DebugFilmstrip` (a
+`ResizeObserver` on its root, so it follows open/close and window resizes) and
+is `0px` while the strip is absent. The two never overlap, and the panel is the
+only one that scrolls.
 
 - **`openPanel`** (`store/useAtmosphereStore.ts`) replaced each of
   `PhysicsSection`/`MotionSection`'s own local `useState` — one shared field so
@@ -168,7 +181,8 @@ whole has no real reason to outgrow the viewport.
   by candidate. Collapsed by default, only mounted when there is something to
   show, filled in live (pushed the instant a photo is captured, not once the
   round's Jev call returns). Purely observational debug tooling — nothing in
-  the pipeline reads it back. See `pipeline.md` for where it hooks in.
+  the pipeline reads it back, apart from publishing its own height as
+  `--filmstrip-h` so the control panel can stay clear of it. See `pipeline.md` for where it hooks in.
 
 ### The follow-camera mini-view
 

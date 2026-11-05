@@ -9,7 +9,8 @@ closed out.
 
 The code itself is unchanged since the UI/debug polish of 25 October — a live
 debug filmstrip, an exclusive Physics/Motion accordion, AI-named animation
-titles, new default dials, the config panel with no scroll, the camera staying
+titles, new default dials, the config panel (now scrolling only when a short
+viewport would put it under the filmstrip), the camera staying
 responsive during generation, and a follow-camera picture-in-picture mini-view
 during playback.
 
@@ -57,9 +58,13 @@ passing, plus a run in the browser against two real models.
   Verified again after a pixel-ratio bug fix, at `devicePixelRatio=2.5` (the
   test machine's own real scaling) — no second physical monitor was available
   to confirm the original dual-monitor report against directly.
-- **The config panel has no scroll**, confirmed via its computed
-  `overflow-y: visible` and a `scrollHeight` that already fits its
-  `clientHeight` at a normal viewport size.
+- **The config panel never overlaps the evaluated-poses filmstrip.** It scrolls
+  (inner div, `overflow-y: auto`) only when its content does not fit above the
+  strip, and not otherwise. Checked in the browser by setting `--filmstrip-h` to
+  0 / 600 / 700px on an 831px viewport: no scroll when it fits, and with the
+  strip taller the panel stopped 24px above it and scrolled. Not exercised
+  against a live generation's real filmstrip (the `ResizeObserver` wiring that
+  sets the variable), only the CSS side of it.
 
 ## What is weak, and known
 
@@ -103,7 +108,10 @@ Ordered by how much it costs the result.
    same pass; a more ambitious, multi-beat prompt is more likely to land on a
    pose sequence that doesn't read as one coherent motion — consistent with
    item 4 above (the vocabulary is thin outside a few well-covered actions).
-10. **The UI isn't responsive outside laptop-sized viewports**, and working
+10. **The UI isn't responsive outside laptop-sized viewports** (the control panel
+    and the filmstrip no longer collide on short windows, see above; width and
+    the follow-camera mini-view, which does not avoid the filmstrip, are not
+    handled), and working
     directly with some 3D models' joints showed real limits during that same
     pass that weren't fully characterized — worth a closer look if it recurs,
     but not reproduced in enough detail here to describe precisely.

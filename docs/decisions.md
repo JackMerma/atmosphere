@@ -268,6 +268,26 @@ Generate rather than disappearing between poses. Deliberately read-only:
 nothing in the pipeline consumes this store back, so it can never change what
 a generation does, only what the user can see of it.
 
+## The control panel scrolls only when the filmstrip would cover it
+
+**It looked like:** on a short window, the evaluated-poses filmstrip (fixed to
+the bottom) drew over the bottom of the right-hand control panel (fixed to the
+top), hiding the Generate button and the animation list.
+
+**Why the earlier answer failed:** the panel had deliberately no `max-height`
+and no `overflow` (see the "no scroll" reasoning in `architecture.md`'s history),
+which holds on a laptop-sized viewport but not on a short one, and the strip's
+height is not fixed either: it is a header when collapsed and header plus up to
+`max-h-52` of frames when open.
+
+**Now:** the strip publishes its live height as the CSS variable
+`--filmstrip-h` (`ResizeObserver`, `0px` when absent) and the panel's
+`max-height` is `100dvh - 3rem - var(--filmstrip-h)`. The scroll belongs to an
+inner div, not the bordered box, so the corner brackets are not clipped. A CSS
+variable rather than shared store state because only layout reads it, and the
+panel must react to the strip's real rendered size, which React state would
+only approximate.
+
 ## Rejected
 
 - **A grid-of-cells attention map** — see above.
